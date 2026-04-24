@@ -258,17 +258,129 @@ Historical session logs that previously lived in this section have been moved to
 `archive/fmv-dead-code/docs/CLAUDE_md_fmv_history.md`. They describe the abandoned
 architecture and should not be followed.
 
+## Project state snapshot (2026-04-24)
+
+### Active branches
+
+- `master` — shipping baseline. Has the FMV playback fixes squashed from
+  the retired `fmv-mp4-support` branch (isPlaying gate, `.bik` strip,
+  full-screen rect), campaign-dialog dup fix cherry-picked from the
+  upstream PR, modding guide (`CUSTOM-CAMPAIGNS.md`), editor Tier 0 plan
+  under `devlogs/`, README rewrite.
+- `input-fixes` — 4 commits ahead of master. `gos_SetMousePosition`
+  coord fix, SDL `SDL_SetWindowMouseGrab` at window creation, grab re-
+  assertion on focus events + proper `SDL_WINDOWEVENT` dispatch, and
+  Win32 `ClipCursor` reinforcement. Tested. **Known minor residual:**
+  on one 3-monitor setup the cursor can escape by ~1 column of pixels
+  to the adjacent monitor without losing focus; likely environmental
+  (another process calling `ClipCursor`, DPI-seam quirk, or monitor-
+  alignment utility) rather than a code-side miss.
+- `compass-fix` — 2 commits ahead of master. `[COMPASS_DIAG]` probes
+  for investigation, plus a one-line fix excluding `MC2_ISCOMPASS` from
+  the generic solid pass in `mclib/txmmgr.cpp:1049`. The compass was
+  double-rendered: once in the generic solid pass with that pass's GL
+  state, once in the dedicated compass pass with its own state.
+  Compile-clean; **awaiting in-mission visual test.**
+- `editor-tier0` — empty branch off master, ready for when editor work
+  starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
+  (currently in `.gitignore`). Plan details in
+  `devlogs/mission_editor_tier0_plan.md`.
+- `fmv-mp4-support` — retired (squash-merged into master on
+  2026-04-24).
+- `fmv-mp4-support-backup` — user's personal safety branch, untouched.
+
+### External collaboration
+
+**ThranduilsRing** (maintainer of
+[`mc2-opengl-remastered`](https://github.com/ThranduilsRing/mc2-opengl-remastered))
+— agreed to converge our forks. His engine modernization (Tracy
+profiler, render contract, upcoming test harness + ASan + crash
+handler) + our FMV pipeline + crash fixes. Attribution preserved via
+co-author tags. Current discussion thread:
+<https://github.com/ThranduilsRing/mc2-opengl-remastered/discussions/2>.
+
+He is pushing his next batch (FMV, 24-mission test harness, crash-
+handler-with-clipboard, ASan in a few days) shortly. Our plan per
+discussion #2:
+
+1. Continue working in parallel on our own fork for now.
+2. When he pushes, rebase the **non-FMV work** onto his `main` so we
+   share an incremental baseline.
+3. **Park our FMV branch** as-is until we can diff against his FMV,
+   then pick the better parts and do one integration cycle.
+
+**Known collision risk at rebase time:** his 2026-04-18 HUD scene-
+split plan will clash with our FMV HUD touchpoints (`controlgui.cpp`,
+`forcegroupbar.cpp`, `logistics.cpp`, `missionselectionscreen.cpp`).
+Resolve at rebase time, not earlier.
+
+**Open question awaiting his response:** our Inno Setup installer vs.
+his upcoming mod-launcher + Exodus-as-mod distribution model. Either
+retire ours once his launcher is canonical, or keep it as a "vanilla-
+plus-fixes, no mods" entry point.
+
+**On OpenGL → RHI → Vulkan** (his long-term question): yes if Mac is
+a real goal (MoltenVK path). RHI as an intermediate layer first,
+decouples renderer from backend. Not urgent.
+
+### Upstream PRs to alariq
+
+Four PRs open on `alariq/mc2`, plus two referenced issues:
+
+| # | Topic | Notes |
+|---|---|---|
+| [#23](https://github.com/alariq/mc2/pull/23) | UI scaling | Rebased onto current `upstream/master` on 2026-04-24. Stalled through 2025; bumped back into alariq's inbox. |
+| [#24](https://github.com/alariq/mc2/pull/24) | Windows build improvements | Rebased on top of the updated #23. Blocked on #23 merging first. |
+| [#26](https://github.com/alariq/mc2/pull/26) | FMV pipeline | Branch `fmv-ffmpeg-pipeline` — fresh today, closes #22. |
+| [#28](https://github.com/alariq/mc2/pull/28) | Campaign-dialog dup fix | Closes #27, trivial to review, easiest possible yes. |
+
+Issues: [#22](https://github.com/alariq/mc2/issues/22) (FMVs missing,
+user-opened) and [#27](https://github.com/alariq/mc2/issues/27) (dup
+bug, includes screenshot).
+
+### External reviewer findings (2026-04-24)
+
+A pointed external review landed at mid-session. Four items flagged:
+
+- **High — `setMousePos` coord bug** at `mclib/userinput.h:419` →
+  `GameOS/gameos/gameos_input.cpp:78`. **Fixed** on `input-fixes`.
+- **Medium — compass multi-pass routing** in `mclib/txmmgr.cpp`
+  (solid pass :1049 consumes `MC2_ISCOMPASS`, alpha pass :1413
+  excludes it, dedicated pass :1585 only sees part). **Fixed** on
+  `compass-fix`.
+- **Medium — editor source gitignored** at `.gitignore:97` while
+  `MC2_Source_Code/Source/Editor/EditorMFC.vcproj:4` exists.
+  **Open** — unignore becomes step 0 when editor work starts on
+  `editor-tier0`.
+- **Low — `.bik` strip via `strstr`** in `code/logistics.cpp` (would
+  truncate on first substring, not just terminal ext). **Fixed** on
+  `master` (terminal-only check via `S_stricmp` of last 4 chars).
+
+### Next concrete moves
+
+1. **Test the compass fix in-game.** Launch, start any mission,
+   visually verify the compass renders cleanly (no double-artifacts
+   or missing geometry).
+2. **Input-fixes stability check.** The ClipCursor reinforcement has
+   a known 1-pixel-column residual on one setup; not urgent.
+3. **Wait for ThranduilsRing's next push.** When it lands, start the
+   rebase of non-FMV work onto his `main` per discussion #2.
+4. **Merge `input-fixes` and `compass-fix` to master** when validated
+   (before or after ThranduilsRing's push — doesn't need to be
+   synchronized).
+5. **Editor Tier 0** when the above has stabilized. Plan at
+   `devlogs/mission_editor_tier0_plan.md`.
+
+---
+
 ## Pending follow-ups
 
 ### Clamp cursor to game window on borderless (2026-04-24)
 
-Cursor can escape the game window onto adjacent monitors on multi-monitor
-setups because nothing clips it. We already hide the OS cursor while the
-window is active (`GameOS/gameos/gos_render.cpp`, `SDL_ShowCursor(SDL_DISABLE)`).
-Need to add `SDL_SetWindowGrab(window, SDL_TRUE)` (or the newer
-`SDL_SetWindowMouseGrab`) in the same code path so the cursor is confined
-to the window bounds while focused. Release on focus-lost so Alt-Tab works
-naturally. ~5-line change.
+**Resolved 2026-04-24 on `input-fixes` branch** — see Project state
+snapshot above. Implemented as `SDL_SetWindowMouseGrab` at window
+creation, grab re-assertion on focus-gain, plus Win32 `ClipCursor`
+reinforcement with the actual client rect. Minor residual documented.
 
 ### Mission editor revival (2026-04-24)
 
