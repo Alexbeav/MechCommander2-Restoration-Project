@@ -40,6 +40,11 @@ In progress / on deck:
 
 - Additional compatibility fixes and crash hardening as issues surface.
 - Performance work (renderer call counts, lighting, resource hot-paths).
+- **Mission editor revival.** MC2 shipped with a full mission editor —
+  Microsoft released its source in the 2001 shared-source drop. It's MFC-
+  based and hasn't been brought forward to modern toolchains by any fork
+  yet. Near-term goal: get it building with VS 2022 and current MFC so
+  players can author custom missions again.
 - Font-rendering quality regression — the current shipping font set is worse
   than retail's originals; a one-shot tool to convert retail glyph atlases
   back into the engine's expected format is planned.
@@ -65,6 +70,19 @@ follow-ups list.
 
 The installer is fully reversible. Uninstalling restores the original `.bik`
 videos from a local backup and removes only the files this patch placed.
+
+## For modders
+
+Want to make a custom campaign with your own mission sequencing and video
+briefings, without touching engine code? See [`CUSTOM-CAMPAIGNS.md`](CUSTOM-CAMPAIGNS.md).
+It walks through the campaign `.fit` format, includes a copy-paste 3-mission
+template, and notes the relevant engine entry points. No build required —
+drop a single `.fit` file into `data/campaign/` and your campaign shows up
+in the New Campaign list next to Carver V.
+
+Custom missions, units, terrain, and videos are beyond data-only modding
+and need the mission editor to be usable — revival plan tracked under
+`devlogs/`.
 
 ## For developers
 
