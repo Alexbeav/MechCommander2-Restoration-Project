@@ -1,6 +1,47 @@
 # Compass investigation — 2026-04-25
 
-Branch: `compass-fix`. Status: first fix attempt reverted; investigation open.
+Branch: `compass-fix`. Status: flag-level fix reverted; root cause narrowed to
+a D3D8→OpenGL XYZRHW translation bug in `shaders/gos_tex_vertex.vert:17`.
+Not yet patched — want an external review of the proposed fix before trying
+it (previous "fix" broke sky).
+
+## TL;DR (2026-04-25 end-of-day)
+
+`MC2_ISCOMPASS` is a HUD-element flag that tags BOTH the compass and the
+sky. The reviewer's pass-routing fix reverted because it broke sky.
+
+Probes then proved the compass geometry reaches the dedicated compass pass
+intact (6 verts / 2 tris per frame, correct screen coords (459-1371, 311-740)
+within viewport 1707×960, valid texture handle 0xf4, valid UVs, full alpha).
+`gos_RenderIndexedArray` is called on those verts. Nothing appears.
+
+The rhw probe showed rhw ≈ 0.000924 on the compass verts (= 1/w_clip with
+w_clip ≈ 1082). In `shaders/gos_tex_vertex.vert:17`, the GL vertex shader
+does:
+
+```glsl
+gl_Position = mvp * vec4(pos.xyz, 1) / pos.w;
+```
+
+Where `pos.w` is the vertex attribute's w = `gos_VERTEX::rhw`. For
+pre-transformed (D3D8 XYZRHW-style) compass verts, that divide scales the
+NDC by 1082 and the primitive gets clipped off-screen.
+
+Sky also uses the same path but its `rhw` is near 1.0 (coincidentally — sky
+dome geometry is designed such that post-projection w ≈ 1), so the divide
+doesn't break it.
+
+**Proposed fix candidates (none applied yet, want review):**
+
+1. Remove the `/ pos.w` divide in `gos_tex_vertex.vert` (and its `_lighted`
+   sibling if similar). Risks regressing whatever currently relies on the
+   divide.
+2. At the forceZ override site (`mclib/tgl.cpp:2660`), also set
+   `gVertex[i].rhw = 1.0f` when forceZ is near plane (compass case). Risks
+   breaking perspective-correct texture sampling on the compass, though
+   for a flat near-plane quad this is arguably fine.
+3. Write rhw = 1.0 at the compass-specific submission site, not at the
+   shared forceZ path. Least risk; slightly ugly.
 
 ## Symptom
 
@@ -224,6 +265,221 @@ After Step 2: rebuild, test in a mission, check that compass renders cleanly
 AND sky still has no gaps. Then strip the `[COMPASS_DIAG]` probes before
 merging to master (same pattern we used for the pilot-video probes — see
 commits `575afc6` / `787cbb0`).
+
+## Update — what Step 1 probes actually told us (2026-04-25 evening)
+
+Three additional probes were added on the `compass-fix` branch (commits
+`4842291`, `43e92e7`, `4d04b9b`). Data from the log:
+
+**Submission split probe** (near-plane vs far-plane, at tgl.cpp:2692):
+
+```
+turn=60..900  near_tris=120 (≈ 2 tris/frame, texture 1203, z=1e-05)
+              far_tris=480  (≈ 8 tris/frame, texture 1201, z=0.99999)
+```
+
+- `near_tris=120/60f = 2 tris/frame` → compass (forceZ=1e-05 at near plane)
+- `far_tris=480/60f = 8 tris/frame` → sky (forceZ=0.9999999 at far plane)
+- After compass toggle-off: `near_tris=0`. Confirms the 2 tris/frame is
+  the compass alone, not interference from other HUD elements.
+
+**Solid pass drain probe** (at txmmgr.cpp:1047):
+
+```
+turn=60   solid pass drained ISCOMPASS: nodes=1 verts=24
+turn=240  solid pass drained ISCOMPASS: nodes=2 verts=24
+```
+
+- 24 verts drained per frame = 8 tris = sky submissions.
+- Compass submissions (6 verts, 2 tris) are NOT drained here.
+- Explanation: the compass texture at node 1203 has alpha, so compass tris
+  are tagged `DRAWALPHA|ISCOMPASS` instead of `DRAWSOLID|ISCOMPASS`. The
+  solid pass only matches `DRAWSOLID`, so compass falls through.
+- Good: compass gets to the dedicated compass pass with its 6 verts intact.
+
+**Compass pass probe**:
+
+```
+turn=60..  nodes=2-3 verts_seen=6 verts_drawn=6
+```
+
+- Compass pass sees the compass verts (6) and calls gos_RenderIndexedArray
+  on them. Still nothing visible.
+
+**Vertex sample probe** (at the compass pass, with rhw):
+
+```
+turn=60 texNodeIdx=1203 texHandle=0xf4 n=6
+        v0=(459.256, 739.378, 1e-05 rhw=0.000924461 argb=0xffffffff uv=0.0005,0.9995)
+        v1=(1371.19, 373.434, 1e-05 rhw=0.000759132)
+        v2=(682.697, 311.477, 1e-05 rhw=0.000731141)
+        viewport=1707x960
+```
+
+- XY coords span (459-1371, 311-740) — well within 1707×960 viewport.
+- Z = 1e-05 (forceZ, near plane).
+- argb = 0xffffffff (opaque white).
+- UV = (0.0005, 0.9995) — sampling the full texture.
+- texHandle = 0xf4 — valid GL texture.
+- **rhw ≈ 0.000924** — non-zero, so not a divide-by-zero NaN.
+
+All the post-projection data looks correct, yet the vertex disappears.
+
+## Root cause — OpenGL shader's XYZRHW mistranslation
+
+At `shaders/gos_tex_vertex.vert:17`:
+
+```glsl
+layout(location = 0) in vec4 pos;    // bound to gos_VERTEX::{x,y,z,rhw}
+uniform mat4 mvp;
+
+void main(void) {
+    vec4 p = mvp * vec4(pos.xyz, 1);
+    gl_Position = p / pos.w;          // pos.w == rhw here
+    ...
+}
+```
+
+The `mvp` uniform is set to `projection_` from
+`gameos_graphics.cpp:1291`, which is a screen-space → NDC ortho:
+
+```
+x' = 2x/W - 1
+y' = 1 - 2y/H
+z' = z
+w' = 1
+```
+
+That correctly maps screen coords (459, 739) into NDC (~-0.462, -0.54).
+Then the shader divides by `pos.w = rhw`.
+
+For the compass: rhw ≈ 0.000924. NDC / 0.000924 = NDC × 1082. The vertex
+ends up at (~-500, ~-585, ...) in NDC space — way outside [-1, 1] — and
+the whole primitive is clipped.
+
+D3D8 XYZRHW semantics expect the rhw field to be used for
+perspective-correct texture sampling, NOT to re-divide the already
+pre-transformed position. The `/ pos.w` in the OpenGL port looks like a
+port-era translation error: someone assumed `w` is a normal clip-space w
+that needs the perspective divide, missing that these verts are already
+post-divide.
+
+### Why sky isn't broken by the same shader
+
+The sky verts go through the same code path (isHudElement → ISCOMPASS
+flag → solid pass at txmmgr.cpp:1047 → `drawIndexedTris` →
+`selectBasicRenderMaterial` → `gos_tex_vertex.vert`). The rhw field on
+sky verts is not logged by our probes, but we know sky renders correctly
+post-revert. The most likely explanation:
+
+- Sky dome geometry is designed such that its post-projection clip-space
+  `w ≈ 1`. This gives `rhw ≈ 1`, and `NDC / 1 = NDC` → renders fine.
+- Compass is a `BldgAppearance` whose shape geometry spans ~1000 world
+  units. Post-projection clip-space `w ≈ 1082`, `rhw ≈ 0.000924`, divide
+  pushes NDC off-screen.
+
+Haven't confirmed sky's rhw with a probe. Could add one as verification
+step — but the arithmetic makes this explanation straightforward.
+
+### Why the same source compiled and worked on MS D3D8
+
+D3D8's `D3DFVF_XYZRHW` flag told the fixed-function pipeline: "these
+vertices are already in screen space; use rhw only for texture perspective
+correction, and treat the position as-is." The OpenGL port rewrote that
+as a vertex shader but incorrectly included the rhw divide on position.
+MS's compass worked because D3D8 didn't do the divide; ours doesn't
+because OpenGL does.
+
+## Proposed fix directions (not yet applied)
+
+None have been tried. Given the previous "fix broke sky" outcome, the
+bar is higher: we want a second pair of eyes before any patch.
+
+**Option 1 — Fix the shader.**
+
+Change `shaders/gos_tex_vertex.vert:17` from:
+```glsl
+gl_Position = p / pos.w;
+```
+to:
+```glsl
+gl_Position = p;
+```
+
+Also check `shaders/gos_tex_vertex_lighted.vert` and any other shaders
+selected by `selectBasicRenderMaterial` / `selectLightedRenderMaterial`
+for the same pattern.
+
+Risk: anything that currently renders CORRECTLY relying on the divide
+(sky, maybe some world geometry) would break. This is the real concern —
+sky clearly works today with `rhw ≠ 1`, so either the "rhw≈1 coincidence"
+theory above is wrong, or our model is incomplete. Before this fix we
+should log sky's rhw too, to confirm.
+
+**Option 2 — Fix rhw at the forceZ site.**
+
+At `mclib/tgl.cpp:2660` where forceZ is written to z:
+```cpp
+if ((forceZ >= 0.0f) && (forceZ < 1.0f))
+{
+    gVertex[0].z = forceZ;
+    gVertex[1].z = forceZ;
+    gVertex[2].z = forceZ;
+    // Also reset rhw to 1.0 so the shader's divide is a no-op. These
+    // vertices are pre-projected HUD overlays; perspective-correct
+    // texture sampling doesn't apply.
+    gVertex[0].rhw = 1.0f;
+    gVertex[1].rhw = 1.0f;
+    gVertex[2].rhw = 1.0f;
+}
+```
+
+Risk: sky ALSO uses forceZ (=0.9999999). If sky's current `rhw ≠ 1`
+is actually correct (e.g. used for perspective-correct texture mapping
+of the sky dome), overriding it to 1.0 would distort sky textures.
+Mitigation: gate by `isHudElement` explicitly but only for near-plane
+overrides (forceZ < some threshold), or pass a flag down.
+
+**Option 3 — Fix rhw only when the source is unambiguously compass.**
+
+At `gamecam.cpp:180` / `BldgAppearance::render` for the compass, set a
+flag on the shape (like `renderAsScreenSpaceHud`) that propagates to the
+submission and forces rhw=1.0. Narrowest fix, most plumbing.
+
+## Questions for the evaluator
+
+Things we'd especially like a second pair of eyes on:
+
+1. Is the shader's `gl_Position = p / pos.w` definitely a bug? Or is
+   there a compensating transform elsewhere that we've missed? Places
+   we've checked:
+   - `mclib/tgl.cpp:1696-1719` (XYZRHW vertex setup for all TG_Shape
+     submissions — sets `rhw = 1.0 / xformCoords.w`).
+   - `mclib/tgl.cpp:2660` (forceZ override — touches z only).
+   - `GameOS/gameos/gameos_graphics.cpp:1291` (`projection_` ortho
+     matrix for screen→NDC).
+   - `gameos_graphics.cpp:1824` (`mat->setTransform(projection_)`
+     before the drawIndexedTris path).
+
+2. Why is sky not broken by the same divide? Our "rhw coincidentally ≈ 1"
+   hypothesis is unverified. Would probing sky's rhw settle it, or is
+   there a sky-specific code path we've overlooked?
+
+3. Of the three fix options, which is lowest risk given alariq's intent
+   in `71b9bdd` (initial shader-based drawing commit, May 2018)? We've
+   looked at that commit; it doesn't show rationale for the `/ pos.w`.
+
+4. Are there other rendering artifacts we'd expect from the same bug
+   but haven't noticed (e.g. skewed FX sprites, misplaced HUD bitmaps)?
+   If so, the narrow rhw-only-for-compass fix might be hiding a
+   broader issue.
+
+## Next action
+
+Pause here pending evaluator review. If we proceed without review:
+first add a sky-rhw probe to confirm/disprove the "rhw ≈ 1" hypothesis,
+then pick Option 2 gated by an additional condition (compass-specific,
+not all forceZ uses).
 
 ## Code pointers
 

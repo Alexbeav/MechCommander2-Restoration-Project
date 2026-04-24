@@ -275,18 +275,21 @@ architecture and should not be followed.
   to the adjacent monitor without losing focus; likely environmental
   (another process calling `ClipCursor`, DPI-seam quirk, or monitor-
   alignment utility) rather than a code-side miss.
-- `compass-fix` — 3 commits ahead of master. `[COMPASS_DIAG]` probes
-  plus a one-line fix excluding `MC2_ISCOMPASS` from the generic
-  solid pass in `mclib/txmmgr.cpp:1049` — **reverted on 2026-04-25**
-  after in-game test showed it caused white gaps in the map around
-  mechs. Root cause: `MC2_ISCOMPASS` is misnamed — it's a HUD-element
-  flag set on both the compass (`gamecam.cpp:619`) *and the sky*
-  (`gamecam.cpp:634`), so excluding it routed sky geometry into the
-  HUD-state compass pass with no depth test. Full investigation,
-  probe data, and next-step options in
-  `devlogs/compass_investigation_2026-04-25.md`. Probes still live
-  on the branch; no further fix attempts until decoupling sky from
-  the flag.
+- `compass-fix` — 7 commits ahead of master. First fix (exclude
+  `MC2_ISCOMPASS` from the solid pass) reverted 2026-04-25 because
+  `MC2_ISCOMPASS` tags sky too (`gamecam.cpp:634`), so it broke sky
+  rendering. **Investigation since then narrowed root cause to a
+  D3D8→OpenGL XYZRHW translation bug in the basic vertex shader**
+  at `shaders/gos_tex_vertex.vert:17` — `gl_Position = p / pos.w`
+  divides the already-post-projection position by `rhw`. For the
+  compass (rhw ≈ 0.000924 because `BldgAppearance` geometry spans
+  ~1000 world units), that divide pushes NDC 1082× off-screen →
+  primitive clipped. Sky survives the same shader because its
+  post-projection w ≈ 1 (dome geometry coincidence). See
+  `devlogs/compass_investigation_2026-04-25.md` for full probe data,
+  three ranked fix options, and open questions for evaluator review.
+  **No fix applied yet** — pausing for external review since the
+  first patch attempt regressed sky.
 - `editor-tier0` — empty branch off master, ready for when editor work
   starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
   (currently in `.gitignore`). Plan details in
@@ -352,12 +355,17 @@ A pointed external review landed at mid-session. Four items flagged:
   `GameOS/gameos/gameos_input.cpp:78`. **Fixed** on `input-fixes`.
 - **Medium — compass multi-pass routing** in `mclib/txmmgr.cpp`
   (solid pass :1049 consumes `MC2_ISCOMPASS`, alpha pass :1413
-  excludes it, dedicated pass :1585 only sees part). **Open — first
-  fix attempt reverted 2026-04-25** because `MC2_ISCOMPASS` is set
-  on the sky as well as the compass; see
-  `devlogs/compass_investigation_2026-04-25.md` for probe data and
-  the strategy for the next attempt (decouple sky first, then
-  re-apply the exclusion).
+  excludes it, dedicated pass :1585 only sees part). **Not the
+  real bug.** Investigation on 2026-04-25 (first fix reverted, then
+  4 rounds of probes) concluded the routing is correct — compass
+  geometry reaches the compass pass intact. Root cause is elsewhere:
+  the basic GL vertex shader at `shaders/gos_tex_vertex.vert:17`
+  mistranslates D3D8 XYZRHW semantics (divides NDC position by
+  `rhw`, which for near-plane HUD overlays with `rhw ≪ 1` pushes
+  the primitive off-screen). Full findings + proposed fixes in
+  `devlogs/compass_investigation_2026-04-25.md`. **Open, awaiting
+  evaluator review** before patching — a risky area we already
+  regressed once.
 - **Medium — editor source gitignored** at `.gitignore:97` while
   `MC2_Source_Code/Source/Editor/EditorMFC.vcproj:4` exists.
   **Open** — unignore becomes step 0 when editor work starts on
@@ -368,13 +376,16 @@ A pointed external review landed at mid-session. Four items flagged:
 
 ### Next concrete moves
 
-1. **Restart compass investigation.** First fix reverted; see
-   `devlogs/compass_investigation_2026-04-25.md`. Next step is a
-   sharper probe that splits compass vs sky submissions by
-   `TG_Shape` identity, then pick between two fix strategies
-   (add `MC2_ISSKY` flag vs plumb an `isSky` parameter). Do not
-   attempt another flag-level exclusion without decoupling sky
-   first.
+1. **Compass investigation paused for evaluator review.** Probes
+   narrowed root cause to `shaders/gos_tex_vertex.vert:17` doing
+   a post-projection `/ pos.w` divide that mistranslates D3D8
+   XYZRHW semantics. Full devlog with probe data, three fix
+   options (shader fix vs rhw override at forceZ vs compass-only
+   flag), and four open questions for the evaluator in
+   `devlogs/compass_investigation_2026-04-25.md`. Do not attempt
+   a fix without a second pair of eyes — the first patch regressed
+   sky, and the rhw theory rests on an unverified claim that sky's
+   rhw is coincidentally ≈ 1.
 2. **Input-fixes stability check.** The ClipCursor reinforcement has
    a known 1-pixel-column residual on one setup; not urgent.
 3. **Wait for ThranduilsRing's next push.** When it lands, start the
