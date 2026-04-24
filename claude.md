@@ -276,20 +276,23 @@ architecture and should not be followed.
   (another process calling `ClipCursor`, DPI-seam quirk, or monitor-
   alignment utility) rather than a code-side miss.
 - `compass-fix` — 7 commits ahead of master. First fix (exclude
-  `MC2_ISCOMPASS` from the solid pass) reverted 2026-04-25 because
-  `MC2_ISCOMPASS` tags sky too (`gamecam.cpp:634`), so it broke sky
-  rendering. **Investigation since then narrowed root cause to a
-  D3D8→OpenGL XYZRHW translation bug in the basic vertex shader**
-  at `shaders/gos_tex_vertex.vert:17` — `gl_Position = p / pos.w`
-  divides the already-post-projection position by `rhw`. For the
-  compass (rhw ≈ 0.000924 because `BldgAppearance` geometry spans
-  ~1000 world units), that divide pushes NDC 1082× off-screen →
-  primitive clipped. Sky survives the same shader because its
-  post-projection w ≈ 1 (dome geometry coincidence). See
-  `devlogs/compass_investigation_2026-04-25.md` for full probe data,
-  three ranked fix options, and open questions for evaluator review.
-  **No fix applied yet** — pausing for external review since the
-  first patch attempt regressed sky.
+  `MC2_ISCOMPASS` from solid pass) reverted 2026-04-25 because
+  `MC2_ISCOMPASS` tags sky too. Four rounds of probes proved compass
+  geometry reaches the compass pass intact with valid coords,
+  texture, and vertex alpha. My follow-up "shader XYZRHW divide"
+  theory was **retracted** 2026-04-25 late on evaluator feedback —
+  the math was wrong (gl_Position is a 4-vector; the GPU's
+  perspective divide cancels the shader's divide by rhw). Current
+  best theory: alpha-test fragment discard. The compass pass enables
+  `gos_State_AlphaTest, 1` (`mclib/txmmgr.cpp:1600`) which selects
+  the `ALPHA_TEST` variant of `shaders/gos_tex_vertex.frag` that
+  discards fragments with `tex_color.a < 0.5`. If the compass
+  texture's sampled alpha is below 0.5 across its visible region,
+  every fragment gets discarded. Next experiment (per evaluator):
+  force fragment to solid color OR disable alpha test for just the
+  compass pass and see if it appears. Full devlog at
+  `devlogs/compass_investigation_2026-04-25.md` with retraction
+  section.
 - `editor-tier0` — empty branch off master, ready for when editor work
   starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
   (currently in `.gitignore`). Plan details in
@@ -356,16 +359,15 @@ A pointed external review landed at mid-session. Four items flagged:
 - **Medium — compass multi-pass routing** in `mclib/txmmgr.cpp`
   (solid pass :1049 consumes `MC2_ISCOMPASS`, alpha pass :1413
   excludes it, dedicated pass :1585 only sees part). **Not the
-  real bug.** Investigation on 2026-04-25 (first fix reverted, then
-  4 rounds of probes) concluded the routing is correct — compass
-  geometry reaches the compass pass intact. Root cause is elsewhere:
-  the basic GL vertex shader at `shaders/gos_tex_vertex.vert:17`
-  mistranslates D3D8 XYZRHW semantics (divides NDC position by
-  `rhw`, which for near-plane HUD overlays with `rhw ≪ 1` pushes
-  the primitive off-screen). Full findings + proposed fixes in
-  `devlogs/compass_investigation_2026-04-25.md`. **Open, awaiting
-  evaluator review** before patching — a risky area we already
-  regressed once.
+  real bug.** Investigation on 2026-04-25 (first fix reverted,
+  then 4 rounds of probes) proved routing is correct — compass
+  geometry reaches the compass pass intact. My follow-up
+  shader-XYZRHW-divide theory was retracted 2026-04-25 late after
+  evaluator pointed out the math error. Current suspect: alpha-test
+  fragment discard (compass pass enables alpha test; fragment
+  shader discards on `tex_color.a < 0.5`). Next experiment: force
+  solid color OR disable alpha test for compass pass. See
+  `devlogs/compass_investigation_2026-04-25.md` retraction section.
 - **Medium — editor source gitignored** at `.gitignore:97` while
   `MC2_Source_Code/Source/Editor/EditorMFC.vcproj:4` exists.
   **Open** — unignore becomes step 0 when editor work starts on
@@ -376,16 +378,15 @@ A pointed external review landed at mid-session. Four items flagged:
 
 ### Next concrete moves
 
-1. **Compass investigation paused for evaluator review.** Probes
-   narrowed root cause to `shaders/gos_tex_vertex.vert:17` doing
-   a post-projection `/ pos.w` divide that mistranslates D3D8
-   XYZRHW semantics. Full devlog with probe data, three fix
-   options (shader fix vs rhw override at forceZ vs compass-only
-   flag), and four open questions for the evaluator in
-   `devlogs/compass_investigation_2026-04-25.md`. Do not attempt
-   a fix without a second pair of eyes — the first patch regressed
-   sky, and the rhw theory rests on an unverified claim that sky's
-   rhw is coincidentally ≈ 1.
+1. **Compass — run the alpha-test experiment.** Evaluator's
+   suggested next step: force the fragment shader to output a
+   solid color (bypass texture sample and discard) OR disable
+   `gos_State_AlphaTest` for only the compass pass. If compass
+   appears: bug is alpha-test / texture-alpha threshold. If still
+   invisible: suspect compass-asset setup (what texture+shape
+   "compass" actually resolves to via `appearanceTypeList->
+   getAppearance(BLDG_TYPE << 24, "compass")` at
+   `gamecam.cpp:583`). See `devlogs/compass_investigation_2026-04-25.md`.
 2. **Input-fixes stability check.** The ClipCursor reinforcement has
    a known 1-pixel-column residual on one setup; not urgent.
 3. **Wait for ThranduilsRing's next push.** When it lands, start the

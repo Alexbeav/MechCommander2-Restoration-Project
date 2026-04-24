@@ -5,43 +5,81 @@ a D3D8→OpenGL XYZRHW translation bug in `shaders/gos_tex_vertex.vert:17`.
 Not yet patched — want an external review of the proposed fix before trying
 it (previous "fix" broke sky).
 
-## TL;DR (2026-04-25 end-of-day)
+## TL;DR (2026-04-25 end-of-day, corrected 2026-04-25 late)
 
 `MC2_ISCOMPASS` is a HUD-element flag that tags BOTH the compass and the
 sky. The reviewer's pass-routing fix reverted because it broke sky.
 
 Probes then proved the compass geometry reaches the dedicated compass pass
 intact (6 verts / 2 tris per frame, correct screen coords (459-1371, 311-740)
-within viewport 1707×960, valid texture handle 0xf4, valid UVs, full alpha).
-`gos_RenderIndexedArray` is called on those verts. Nothing appears.
+within viewport 1707×960, valid texture handle 0xf4, valid UVs, full vertex
+alpha). `gos_RenderIndexedArray` is called on those verts. Nothing appears.
 
-The rhw probe showed rhw ≈ 0.000924 on the compass verts (= 1/w_clip with
-w_clip ≈ 1082). In `shaders/gos_tex_vertex.vert:17`, the GL vertex shader
-does:
+**Current best theory (post-evaluator review): compass fragments are being
+discarded by the alpha test.** The compass pass sets `gos_State_AlphaTest, 1`
+(`mclib/txmmgr.cpp:1600`), which selects the `ALPHA_TEST` variant of
+`shaders/gos_tex_vertex.frag`. Line 21-22 of that shader:
 
 ```glsl
-gl_Position = mvp * vec4(pos.xyz, 1) / pos.w;
+#ifdef ALPHA_TEST
+    if(tex_color.a < 0.5)
+        discard;
+#endif
 ```
 
-Where `pos.w` is the vertex attribute's w = `gos_VERTEX::rhw`. For
-pre-transformed (D3D8 XYZRHW-style) compass verts, that divide scales the
-NDC by 1082 and the primitive gets clipped off-screen.
+If the compass texture's sampled alpha is below 0.5 across the visible
+region, every fragment is discarded and the compass vanishes even though
+the geometry is perfect. This matches every observation: valid screen
+coords, valid texture handle, valid vertex alpha (argb=0xffffffff) — but
+nothing on screen, because the fragment decision happens on the *sampled*
+alpha, not the vertex alpha.
 
-Sky also uses the same path but its `rhw` is near 1.0 (coincidentally — sky
-dome geometry is designed such that post-projection w ≈ 1), so the divide
-doesn't break it.
+### Retracted: earlier XYZRHW-shader-divide theory
 
-**Proposed fix candidates (none applied yet, want review):**
+Earlier this session I claimed the shader at `shaders/gos_tex_vertex.vert:17`
+mistranslates D3D8 XYZRHW semantics by doing `gl_Position = p / pos.w`.
+External evaluator pointed out this is mathematically wrong:
 
-1. Remove the `/ pos.w` divide in `gos_tex_vertex.vert` (and its `_lighted`
-   sibling if similar). Risks regressing whatever currently relies on the
-   divide.
-2. At the forceZ override site (`mclib/tgl.cpp:2660`), also set
-   `gVertex[i].rhw = 1.0f` when forceZ is near plane (compass case). Risks
-   breaking perspective-correct texture sampling on the compass, though
-   for a flat near-plane quad this is arguably fine.
-3. Write rhw = 1.0 at the compass-specific submission site, not at the
-   shared forceZ path. Least risk; slightly ugly.
+- `gl_Position` is a 4-vector, not a scalar.
+- For XYZRHW verts, `tgl.cpp:1702` stores `rhw = 1/w_clip`.
+- Dividing `gl_Position` by `rhw` = multiplying by `w_clip`, giving
+  `(x_ndc·w_clip, y_ndc·w_clip, z·w_clip, w_clip)` — that's valid
+  clip-space.
+- The GPU then does its *own* perspective divide by `gl_Position.w`,
+  yielding `(x_ndc, y_ndc, z, 1)` — the correct NDC.
+- Net effect of the `/ pos.w` line: identity.
+
+The same shader path also handles other screen-space gos_VERTEX draws with
+rhw ≠ 1 that render fine today — FMV/video quads
+(`code/controlgui.cpp:396`), HUD bitmap quads (`mclib/appear.cpp:442`),
+movie fade/letterbox quads (`code/gamecam.cpp:245`). If the shader divide
+were broken, these would all be broken too. They're not. Good evidence
+the shader is fine.
+
+The "forceZ=0.00001 might be near-clip" angle was also wrong: the ortho
+`projection_` at `gameos_graphics.cpp:1291` passes z straight through into
+NDC, and the compass pass disables depth testing at `txmmgr.cpp:1596`.
+z=0.00001 is fine.
+
+Do NOT remove `/ pos.w`, do NOT override rhw at the forceZ site — those
+"fixes" were based on the wrong model.
+
+### Next experiment (evaluator's suggestion)
+
+Shift probing from vertex math to fragment visibility:
+
+1. Temporarily force the compass fragment shader to output a solid color
+   (bypass texture sample + discard) OR disable `gos_State_AlphaTest`
+   for the compass pass only. If compass appears: geometry is fine, bug
+   is texture alpha / alpha-test threshold.
+2. If step 1 shows the compass: check the compass texture's alpha
+   channel content. A HUD texture with alpha everywhere below 0.5 would
+   explain everything cleanly. Either the threshold (hard-coded 0.5) is
+   wrong, or the texture was baked with the wrong alpha scaling.
+3. If step 1 does NOT show the compass: suspect compass-asset setup
+   (`gamecam.cpp:584` `BldgAppearance` init, what shape/texture the
+   "compass" appearance actually resolves to) or pass-local state
+   beyond alpha test.
 
 ## Symptom
 
