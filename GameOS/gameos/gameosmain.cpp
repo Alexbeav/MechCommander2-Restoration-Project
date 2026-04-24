@@ -28,8 +28,6 @@ extern bool gosExitGameOS();
 extern bool gos_CreateAudio();
 extern void gos_DestroyAudio();
 
-extern SDL_Window* g_sdl_window;
-
 static bool g_exit = false;
 static bool g_focus_lost = false;
 #if 0
@@ -81,13 +79,18 @@ static void process_events(void) {
             // actually fired because event.type for any window-related
             // event is SDL_WINDOWEVENT (0x200). Fixed to dispatch properly.
             switch (event.window.event) {
-            case SDL_WINDOWEVENT_RESIZED: {
+            case SDL_WINDOWEVENT_RESIZED:
+            case SDL_WINDOWEVENT_SIZE_CHANGED: {
                 float w = (float)event.window.data1;
                 float h = (float)event.window.data2;
                 glViewport(0, 0, (GLsizei)w, (GLsizei)h);
+                graphics::refresh_mouse_grab();
                 SPEW(("INPUT", "resize event: w: %f h:%f\n", w, h));
                 break;
             }
+            case SDL_WINDOWEVENT_MOVED:
+                graphics::refresh_mouse_grab();
+                break;
             case SDL_WINDOWEVENT_FOCUS_GAINED:
                 // Re-assert the mouse grab on focus regain. The initial
                 // grab at window-creation can be only partially applied on
@@ -95,14 +98,12 @@ static void process_events(void) {
                 // leftmost column of the adjacent monitor without losing
                 // focus). Re-asserting once focus is actually confirmed
                 // makes the clamp stick.
-                if (g_sdl_window)
-                    SDL_SetWindowMouseGrab(g_sdl_window, SDL_TRUE);
+                graphics::set_mouse_grab(true);
                 g_focus_lost = false;
                 break;
             case SDL_WINDOWEVENT_FOCUS_LOST:
                 // Release grab so Alt-Tab and other windows behave cleanly.
-                if (g_sdl_window)
-                    SDL_SetWindowMouseGrab(g_sdl_window, SDL_FALSE);
+                graphics::set_mouse_grab(false);
                 g_focus_lost = true;
                 break;
             }
