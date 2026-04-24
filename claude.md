@@ -177,33 +177,31 @@ next concrete moves, read `devlogs/project_state.md`. Refreshed when
 something material changes (merge, new PR, new external milestone) —
 not on a calendar.
 
-Each pending follow-up has its own file under `devlogs/followups/`.
-Close one out by deleting the file (or moving to `devlogs/closed/`
-with a resolution note if the investigation is worth preserving).
+## Active devlogs (in progress)
 
-Current index:
+Files in `devlogs/` root are active work. Move to `devlogs/closed/`
+with a resolution note when done.
+
+- [`fonts_d3f_loader_2026-04-25.md`](devlogs/fonts_d3f_loader_2026-04-25.md)
+- [`briefing_map_black_textures_2026-04-25.md`](devlogs/briefing_map_black_textures_2026-04-25.md)
+- [`mission_select_stray_lines_2026-04-25.md`](devlogs/mission_select_stray_lines_2026-04-25.md)
+
+## Future follow-ups (not yet picked up)
+
+Files in `devlogs/followups/`, one per topic. When work starts on a
+follow-up, promote it to an active devlog in `devlogs/` root and
+delete the follow-up file.
 
 - [`alariq-pr-waits.md`](devlogs/followups/alariq-pr-waits.md) —
-  per-PR status + outreach history for all five open upstream PRs.
+  per-PR status + outreach history for open upstream PRs.
 - [`auto-detect-resolution.md`](devlogs/followups/auto-detect-resolution.md) —
-  small task: query `SDL_GetCurrentDisplayMode` on first launch to
-  replace the hardcoded 1920×1080 in `options.cfg`.
-- [`briefing-map-black-textures.md`](devlogs/followups/briefing-map-black-textures.md) —
-  mission briefing map renders mostly black (water/buildings missing).
-  Likely colorkey/bilinear interaction or palette load. High priority.
+  query `SDL_GetCurrentDisplayMode` on first launch to replace the
+  hardcoded 1920×1080 in `options.cfg`.
 - [`distribution-license-anchor.md`](devlogs/followups/distribution-license-anchor.md) —
   installer check is the full model (no runtime DRM); lean data-bundle
   pass (1.9 GB → 400-600 MB) before public release.
-- [`font-rendering-regression.md`](devlogs/followups/font-rendering-regression.md) —
-  UI font looks worse than retail. Fix: port `.d3f` loader into
-  `gosFont::load` so engine reads retail fonts directly (they already
-  ship in `full_game/assets/graphics/`, currently ignored).
 - [`mission-editor-tier0.md`](devlogs/followups/mission-editor-tier0.md) —
   revive 2001 mission editor on VS 2022 + MFC. Tier 0 = 2-5 days.
-  Empty `editor-tier0` branch exists for when work starts.
-- [`mission-select-stray-lines.md`](devlogs/followups/mission-select-stray-lines.md) —
-  stray 1-px primitives on mission selection screen. Likely
-  `hiResOffset` double-application, same class as FMV border fix.
 - [`release-installer.md`](devlogs/followups/release-installer.md) —
   Inno Setup installer; three polish items before public release
   (bundle ffmpeg, compression, x64compatible).
