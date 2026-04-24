@@ -275,12 +275,18 @@ architecture and should not be followed.
   to the adjacent monitor without losing focus; likely environmental
   (another process calling `ClipCursor`, DPI-seam quirk, or monitor-
   alignment utility) rather than a code-side miss.
-- `compass-fix` — 2 commits ahead of master. `[COMPASS_DIAG]` probes
-  for investigation, plus a one-line fix excluding `MC2_ISCOMPASS` from
-  the generic solid pass in `mclib/txmmgr.cpp:1049`. The compass was
-  double-rendered: once in the generic solid pass with that pass's GL
-  state, once in the dedicated compass pass with its own state.
-  Compile-clean; **awaiting in-mission visual test.**
+- `compass-fix` — 3 commits ahead of master. `[COMPASS_DIAG]` probes
+  plus a one-line fix excluding `MC2_ISCOMPASS` from the generic
+  solid pass in `mclib/txmmgr.cpp:1049` — **reverted on 2026-04-25**
+  after in-game test showed it caused white gaps in the map around
+  mechs. Root cause: `MC2_ISCOMPASS` is misnamed — it's a HUD-element
+  flag set on both the compass (`gamecam.cpp:619`) *and the sky*
+  (`gamecam.cpp:634`), so excluding it routed sky geometry into the
+  HUD-state compass pass with no depth test. Full investigation,
+  probe data, and next-step options in
+  `devlogs/compass_investigation_2026-04-25.md`. Probes still live
+  on the branch; no further fix attempts until decoupling sky from
+  the flag.
 - `editor-tier0` — empty branch off master, ready for when editor work
   starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
   (currently in `.gitignore`). Plan details in
@@ -346,8 +352,12 @@ A pointed external review landed at mid-session. Four items flagged:
   `GameOS/gameos/gameos_input.cpp:78`. **Fixed** on `input-fixes`.
 - **Medium — compass multi-pass routing** in `mclib/txmmgr.cpp`
   (solid pass :1049 consumes `MC2_ISCOMPASS`, alpha pass :1413
-  excludes it, dedicated pass :1585 only sees part). **Fixed** on
-  `compass-fix`.
+  excludes it, dedicated pass :1585 only sees part). **Open — first
+  fix attempt reverted 2026-04-25** because `MC2_ISCOMPASS` is set
+  on the sky as well as the compass; see
+  `devlogs/compass_investigation_2026-04-25.md` for probe data and
+  the strategy for the next attempt (decouple sky first, then
+  re-apply the exclusion).
 - **Medium — editor source gitignored** at `.gitignore:97` while
   `MC2_Source_Code/Source/Editor/EditorMFC.vcproj:4` exists.
   **Open** — unignore becomes step 0 when editor work starts on
@@ -358,9 +368,13 @@ A pointed external review landed at mid-session. Four items flagged:
 
 ### Next concrete moves
 
-1. **Test the compass fix in-game.** Launch, start any mission,
-   visually verify the compass renders cleanly (no double-artifacts
-   or missing geometry).
+1. **Restart compass investigation.** First fix reverted; see
+   `devlogs/compass_investigation_2026-04-25.md`. Next step is a
+   sharper probe that splits compass vs sky submissions by
+   `TG_Shape` identity, then pick between two fix strategies
+   (add `MC2_ISSKY` flag vs plumb an `isSky` parameter). Do not
+   attempt another flag-level exclusion without decoupling sky
+   first.
 2. **Input-fixes stability check.** The ClipCursor reinforcement has
    a known 1-pixel-column residual on one setup; not urgent.
 3. **Wait for ThranduilsRing's next push.** When it lands, start the
