@@ -224,6 +224,10 @@ RenderWindow* create_window(const char* pwinname, int width, int height)
         }
 
         SDL_ShowWindow(window);
+
+        // Hide the OS cursor. MC2 renders its own in-game cursor sprite, so
+        // the default arrow would otherwise double up on top of it.
+        SDL_ShowCursor(SDL_DISABLE);
     }
 
     RenderWindow* rw = new RenderWindow();

@@ -1,157 +1,121 @@
-# Mech Commander 2 open source engine + Linux port.
-[website](https://alariq.github.io/mc2-website/)
+![MechCommander 2 Restoration Project](.github/images/hero.jpg)
 
- ## !NB: as russia conducts war in Ukraine I have no time to support this project until we will get rid of orcs. You are encouraged to help.
- 
+# MechCommander 2 Restoration Project
 
-Disclaimer: I consider this project finished for now, there is a lot more to do for someone who wants to improve the game, but all functionality (except networking) is implemented and I've passed the game on my Linux box. Also found original game bugs and crashes are fixed.
+A community effort to become the definitive way to play **MechCommander 2**
+(Microsoft Game Studios, 2001) on modern systems. Built on [alariq's
+open-source port](https://github.com/alariq/mc2) of Microsoft's
+[shared-source engine release](https://github.com/microsoft/MechCommander2),
+this fork works toward three goals, in roughly that order of priority:
 
+1. **Make the game reliably playable on Windows 11** — fix the crashes,
+   compatibility breakages, and dead dependencies that keep the 2001 binary
+   from running on a current OS out of the box.
+2. **Improve performance and quality of life** wherever it's worth the cost —
+   renderer modernization, startup behaviour, resource handling, and so on.
+3. **Keep Linux working** — the upstream port builds and runs on Linux, and
+   that capability is preserved here. It isn't the current focus, but we
+   avoid regressing it, and it'll be revisited.
 
-This port is an open source implementation of a closed MC2 engine code using available interface (.h) files.
-Currently game can be run on both Linux and Windows in 64bit mode.
-Fixed a lot of bugs (including ones present in original game).
-Sound system is not fully implemented (panning, doppler, etc. not supported yet)
+The project is distributed as an **installer that patches a legal retail
+MechCommander 2 install**. No game assets are redistributed — the installer
+lays down the patched binary and supporting files alongside your existing
+retail data, with `Mc2Rel.exe` required as the license anchor.
 
-## TODO: 
-* fix remaining memory leaks (finish implementation of memory heaps)
-* make nice data packs, so not only me can play the game :-) (in progress, see [data repo](https://github.com/alariq/mc2srcdata)
-* ~~actually finish all missions in the game~~
-* make sure no files are created outside of user directory
-* reduce draw calls number
-* reimplement/optimize priority queue
-* finish moving lighting to shaders (move whole lighting there, not only shader-based drawing of CPU-prelit vertices like I do now)
-* Update graphics to ~~2018~~ ~~2020~~ 2021
-* Add network support?
-* I am sure there is more
+## Status
 
-### Licensing
-* Original game was released under Shared Source Limited Permission License (please refer to EULA.txt)
-* My code is licenced under GPL v.3 (see license.txt)
-* All third party libraries use their own licenses
+Completed and verified:
 
+- **Modern FMV playback** — the original Bink video codec is end-of-life and
+  fails on modern Windows. This project replaces it with an FFmpeg/MP4
+  pipeline that handles the intro, in-mission cinematics, mission briefings,
+  pilot portraits, and credits through a single decode path.
+- **Retail-patch installer** — wizard with registry-based install-dir
+  autodetect, license-anchor validation, license-preserving uninstall, and
+  in-place `.bik` → `.mp4` transcode of the movie files on install.
+- **Windows 11 verification** — confirmed running from end to end on a clean
+  retail install of MechCommander 2 on Windows 11 64-bit.
 
-Building on Windows
-===================
+In progress / on deck:
 
-**Updated detailed build manual for Windows can be found in `BUILD-WIN.md`**
+- Additional compatibility fixes and crash hardening as issues surface.
+- Performance work (renderer call counts, lighting, resource hot-paths).
+- Font-rendering quality regression — the current shipping font set is worse
+  than retail's originals; a one-shot tool to convert retail glyph atlases
+  back into the engine's expected format is planned.
+- Auto-detecting display resolution on first launch instead of the current
+  hardcoded 1080p.
+- Linux: revisit build instructions and verify nothing regressed after the
+  Windows-side work lands.
 
-To build on windows use CMake
+Tracked in more detail under `devlogs/` and the top-level `claude.md`
+follow-ups list.
 
-Ensure, that you have all necessary dependencies: SDL2, SDL_mixer, SDL_ttf(for tools), zlib, glew
-I recommend to get zlib sources and build them by hand (do not forget to copy zconf.h)
-One can also use 3rdparty.zip package in the repo for simpler setup, it contains all needed 3rdparty libraries
+## For players
 
-Just for a reference here is how my 3rdparty tree may look like
-```
-|   
-+---bin
-+---cmake
-    |    sdl2_mixer-config.cmake
-    |    sdl2_ttf-config.cmake
-    |    sdl2-config.cmake
-    |    
-+---include
-|   |   zconf.h
-|   |   zlib.h
-|   |   
-|   +---GL
-|   |       eglew.h
-|   |       glew.h
-|   |       glxew.h
-|   |       wglew.h
-|   |       
-|   \---SDL2
-|           all sdl headers (SDL_mixer.h and SDL_ttf.h should be there as well)
-|           
-\---lib
-    +---x64
-    |       glew32.lib
-    |       glew32s.lib
-    |       SDL2.dll
-    |       SDL2.lib
-    |       SDL2main.lib
-    |       SDL2test.lib
-    |       SDL2_mixer.dll
-    |       SDL2_mixer.lib
-    |       SDL2_ttf.lib
-    |       SDL2_ttf.dll
-    |       zlib.dll
-    |       zlib.lib
-    |       zlibstatic.lib
-    |       
-    \---x86
-            glew32.lib
-            glew32s.lib
-            SDL2.dll
-            SDL2.lib
-            SDL2main.lib
-            SDL2test.lib
-            SDL2_mixer.dll
-            SDL2_mixer.lib
-            SDL2_mixer.dll
-            zlib.dll
-            zlib.lib
-            zlibstatic.lib
-```
+*Public release is staged but not yet published.* Once it is:
 
-You may already have your dependencies installed in other place(s), so just make sure CMake knows where to find them.
+1. Install **retail MechCommander 2** (you must own a legal copy — the
+   installer refuses to proceed without `Mc2Rel.exe` present in the target
+   directory).
+2. Download the installer from the Releases page.
+3. Run it. Point the wizard at your MechCommander 2 install directory when
+   prompted — it autodetects the usual locations.
+4. Launch from the new Start-menu shortcut.
 
-Now:
-```
-git clone https://github.com/alariq/mc2.git
-cd mc2
-md build64
-cd build64
-cmake.exe -G "Visual Studio 15 2017 Win64" -DCMAKE_PREFIX_PATH=c:/path_to_your_dependencies/ -DCMAKE_LIBRARY_ARCHITECTURE=x64 ..
-```
-(to generate project for VS1027 for 64bit build)
-(prefer absolute path)
+The installer is fully reversible. Uninstalling restores the original `.bik`
+videos from a local backup and removes only the files this patch placed.
 
-or for 32bit build:
+## For developers
 
-`cmake.exe -G "Visual Studio 15 2017 Win64" -DCMAKE_PREFIX_PATH=c:/path_to_your_dependencies/ -DCMAKE_LIBRARY_ARCHITECTURE=x86 ..`
-(prefer absolute path)
+If you want to build from source:
 
-for 6bit build and VS2022:
+1. Clone this repo.
+2. Extract `3rdparty.zip` to `3rdparty/` in the repo root.
+3. Follow the detailed steps in [`BUILD-WIN.md`](BUILD-WIN.md) (Visual Studio
+   2022, CMake, x64). Short version:
 
-`cmake.exe -G "Visual Studio 17 2022" -DCMAKE_PREFIX_PATH=c:/path_to_your_dependencies/ -DCMAKE_LIBRARY_ARCHITECTURE=x64 ..`
-(prefer absolute path)
+   ```
+   mkdir build64 && cd build64
+   cmake -G "Visual Studio 17 2022" -DCMAKE_PREFIX_PATH="$PWD/../3rdparty" -DCMAKE_LIBRARY_ARCHITECTURE=x64 ..
+   cmake --build . --config Release --target mc2
+   ```
 
-Now run generated solution and try to build it!
+   Build output copies itself to `full_game/mc2.exe` for testing.
 
+Game data (maps, missions, assets) lives in a separate repository:
+[alariq/mc2srcdata](https://github.com/alariq/mc2srcdata). That's where you
+point a full from-source setup if you are not overlaying this patch onto a
+retail install.
 
-Now build string resources
---------------------------
+Linux builds follow roughly the same flow; see `BUILD-WIN.md` and upstream
+docs for details.
 
-First use script in `test_scripts/res_conv/res_conv.pl` to generate `strings.res.cpp` and  `strings.res.h` files or just take them from that folder
-Then copy them to `./res` folder
-Then:
+## Credits
 
-```
-cd res
-md build64
-cd build 64
-cmake.exe -G "Visual Studio 15 2017 Win64" -DCMAKE_LIBRARY_ARCHITECTURE=x64 ..
-```
-put resulting dll along with executable file
+- **Microsoft Game Studios** — [original MechCommander 2 engine source
+  release](https://github.com/microsoft/MechCommander2), without which none
+  of this would exist.
+- **alariq** — [the open-source port](https://github.com/alariq/mc2): OpenGL
+  renderer, Linux support, and the overwhelming majority of bug fixes
+  carried forward into this fork.
+- **This fork** — FMV pipeline rewrite, installer, compatibility and crash
+  fixes on the Windows 11 path. Work in progress; contributions welcome via
+  pull request.
 
-Building data
---------------------------
+## Licensing
 
-Data files are located in a separate [repository](https://github.com/alariq/mc2srcdata)
-Building data is just a matter of executing ```make``` command. You can find instruction on how to do it there.
-But first one needs to build all necessary tools. There are 2 projects which have to be built:
+- Original game code is covered by Microsoft's **Shared Source Limited
+  Permission License** — see [`EULA.txt`](EULA.txt).
+- Original port and this fork's contributions are licensed under **GPLv3** —
+  see [`license.txt`](license.txt).
+- Third-party libraries (SDL2, FFmpeg, GLEW, zlib, etc.) retain their own
+  licenses.
 
-* data_tools 
-* text_tool
+## Reporting issues
 
-All steps are same as for the main application. As a result you'll have next binaries: ```aseconv, makefst, makersp, mpak, text_tool```. Copy those to the ```build_scripts``` folder in ```mc2srcdata``` repository.
-
-Once everything in place, you can launch build scripts as described in corresponding ```README.txt``` file.
-
-
-Building on Linux
-=================
-
-You, probably already know hot to do it. If not, please, see windows building section, the process is quite similar.
-
+- Crashes or regressions: open an issue with `mc2_stdout.log` attached
+  (next to `mc2.exe` in the install directory — it is overwritten each run,
+  so grab it before relaunching).
+- Build failures: please include your OS, toolchain, and the CMake
+  configuration output.

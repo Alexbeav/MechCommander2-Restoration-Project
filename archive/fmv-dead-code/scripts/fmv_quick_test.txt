@@ -1,0 +1,27 @@
+=== MechCommander 2 FMV Quick Test Results ===
+Test Date: Sat, 27 Sep, 2025 23:25:08
+
+=== INTRO SEQUENCE VIDEOS ===
+MSFT.mp4: h264, 1920x1080, 24fps, 13.4s - ✅ HIGH QUALITY INTRO
+CINEMA1.mp4: h264, 320x180, 15fps, 160.5s - ⚠️ LOW RESOLUTION
+
+=== PILOT VIDEOS ===
+BUBBA1.mp4: h264, 76x54, 15fps, 1.8s - ✅ TINY PILOT AVATAR
+
+=== ANALYSIS ===
+🎯 KEY FINDINGS:
+• Different video resolutions suggest positioning issues are expected
+• MSFT: 1920x1080 (fullscreen), CINEMA1: 320x180 (small), BUBBA: 76x54 (tiny)
+• Mixed frame rates (24fps vs 15fps) could cause timing issues
+• All videos use H.264 codec - ✅ Compatible
+• Audio detected in MSFT.mp4 - ✅ A/V sync possible
+
+🚨 ISSUES MATCHING YOUR REPORTED PROBLEMS:
+• CINEMA1 (320x180) playing in wrong position = Briefing video positioning issue
+• Frame rate differences (24fps vs 15fps) = Fast playback timing issues
+• Tiny pilot videos (76x54) = Likely scaling/positioning problems
+
+✅ RECOMMENDED TESTS:
+1. Position validation for 320x180 videos (briefings)
+2. Frame rate timing validation (24fps vs 15fps)
+3. Pilot video scaling validation (76x54 → display size)

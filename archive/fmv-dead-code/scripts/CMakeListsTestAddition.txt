@@ -1,0 +1,61 @@
+# Add this to your main CMakeLists.txt to build the FMV test runner
+
+# FMV Test Runner executable
+add_executable(fmv_test_runner
+    code/fmv_test_runner.cpp
+    code/fmv_test_framework.cpp
+    code/mp4player_test_extension.cpp
+    code/video_validator.cpp
+    code/test_metrics.h
+    code/mp4player_test_extension.h
+)
+
+# Link required libraries (same as main MC2 executable)
+target_link_libraries(fmv_test_runner
+    ${FFMPEG_LIBRARIES}
+    ${SDL2_LIBRARIES}
+    ${OPENGL_LIBRARIES}
+    ${GLEW_LIBRARIES}
+)
+
+# Include directories
+target_include_directories(fmv_test_runner PRIVATE
+    ${CMAKE_SOURCE_DIR}/code
+    ${CMAKE_SOURCE_DIR}/mclib
+    ${CMAKE_SOURCE_DIR}/GameOS
+    ${FFMPEG_INCLUDE_DIRS}
+    ${SDL2_INCLUDE_DIRS}
+    ${OPENGL_INCLUDE_DIRS}
+    ${GLEW_INCLUDE_DIRS}
+)
+
+# Copy test runner to output directory
+add_custom_command(TARGET fmv_test_runner POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:fmv_test_runner> ${CMAKE_BINARY_DIR}/Release/
+)
+
+# Create test targets for CTest integration
+enable_testing()
+
+# Quick validation test (runs in CI)
+add_test(NAME fmv_quick_validation
+    COMMAND fmv_test_runner --quick --headless --suite validation
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/Release
+)
+
+# Full intro sequence test
+add_test(NAME fmv_intro_sequence
+    COMMAND fmv_test_runner --headless --suite intro
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/Release
+)
+
+# Stress tests (longer running)
+add_test(NAME fmv_stress_tests
+    COMMAND fmv_test_runner --headless --suite stress
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/Release
+)
+
+# Set test properties
+set_tests_properties(fmv_quick_validation PROPERTIES TIMEOUT 30)    # 30 seconds
+set_tests_properties(fmv_intro_sequence PROPERTIES TIMEOUT 120)     # 2 minutes
+set_tests_properties(fmv_stress_tests PROPERTIES TIMEOUT 300)       # 5 minutes

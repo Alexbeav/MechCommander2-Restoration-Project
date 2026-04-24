@@ -1,0 +1,12 @@
+[DEBUG_STATS] Time: 0.000008s | Video: 0/0 frames | Timing error: -0.007700ms | Audio packets: 0 | Audio callbacks: 0 | Queue size: 0 | Last A PTS: 0.000000s | Last V PTS: 0.000000s | A/V Sync: 0.000000ms
+[DEBUG_STATS] Time: 0.034631s | Video: 0/0 frames | Timing error: -34.630900ms | Audio packets: 9 | Audio callbacks: 0 | Queue size: 9 | Last A PTS: 0.170667s | Last V PTS: 0.000000s | A/V Sync: 170.666667ms
+[DEBUG_STATS] Time: 0.068274s | Video: 0/1 frames | Timing error: -68.273900ms | Audio packets: 19 | Audio callbacks: 0 | Queue size: 19 | Last A PTS: 0.384000s | Last V PTS: 0.000000s | A/V Sync: 384.000000ms
+[DEBUG_STATS] Time: 0.120774s | Video: 0/2 frames | Timing error: -120.774000ms | Audio packets: 27 | Audio callbacks: 0 | Queue size: 27 | Last A PTS: 0.554667s | Last V PTS: 0.000000s | A/V Sync: 554.666667ms
+[DEBUG_STATS] Time: 0.154696s | Video: 0/3 frames | Timing error: -154.695500ms | Audio packets: 37 | Audio callbacks: 0 | Queue size: 37 | Last A PTS: 0.768000s | Last V PTS: 0.000000s | A/V Sync: 768.000000ms
+[DEBUG_STATS] Time: 0.000013s | Video: 0/0 frames | Timing error: -0.012700ms | Audio packets: 0 | Audio callbacks: 0 | Queue size: 0 | Last A PTS: 0.000000s | Last V PTS: 0.000000s | A/V Sync: 0.000000ms
+[DEBUG_STATS] Time: 0.035783s | Video: 0/0 frames | Timing error: -35.783300ms | Audio packets: 9 | Audio callbacks: 0 | Queue size: 9 | Last A PTS: 0.170667s | Last V PTS: 0.000000s | A/V Sync: 170.666667ms
+[DEBUG_STATS] Time: 0.070887s | Video: 0/1 frames | Timing error: -70.887400ms | Audio packets: 19 | Audio callbacks: 0 | Queue size: 19 | Last A PTS: 0.384000s | Last V PTS: 0.000000s | A/V Sync: 384.000000ms
+[DEBUG_STATS] Time: 0.113904s | Video: 0/2 frames | Timing error: -113.903500ms | Audio packets: 27 | Audio callbacks: 0 | Queue size: 27 | Last A PTS: 0.554667s | Last V PTS: 0.000000s | A/V Sync: 554.666667ms
+[DEBUG_STATS] Time: 0.148902s | Video: 0/3 frames | Timing error: -148.902300ms | Audio packets: 37 | Audio callbacks: 0 | Queue size: 37 | Last A PTS: 0.768000s | Last V PTS: 0.000000s | A/V Sync: 768.000000ms
+[DEBUG_STATS] Time: 0.000010s | Video: 0/0 frames | Timing error: -0.009600ms | Audio packets: 0 | Audio callbacks: 0 | Queue size: 0 | Last A PTS: 0.000000s | Last V PTS: 0.000000s | A/V Sync: 0.000000ms
+[DEBUG_STATS] Time: 0.000006s | Video: 0/0 frames | Timing error: -0.005700ms | Audio packets: 0 | Audio callbacks: 0 | Queue size: 0 | Last A PTS: 0.000000s | Last V PTS: 0.000000s | A/V Sync: 0.000000ms

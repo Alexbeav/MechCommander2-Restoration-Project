@@ -42,6 +42,17 @@ void aButton::destroy()
 	aObject::destroy();
 }
 
+void aButton::toggle() {
+	if (!isEnabled())
+		return;
+
+	if (state == PRESSED)
+		press(false);
+	else
+		press(true);
+}
+
+
 aButton& aButton::operator=( const aButton& src)
 {
 	copyData( src );

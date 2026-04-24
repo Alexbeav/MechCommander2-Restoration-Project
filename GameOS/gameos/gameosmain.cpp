@@ -2,6 +2,7 @@
 #include "gos_render.h"
 #include <stdio.h>
 #include <time.h>
+#include <iostream>
 
 #include <SDL2/SDL.h>
 #include "gos_input.h"
@@ -33,37 +34,36 @@ static bool g_focus_lost = false;
 static camera g_camera;
 #endif
 
-static void handle_key_down( SDL_Keysym* keysym ) {
-    switch( keysym->sym ) {
+static void handle_key_down(SDL_Keysym* keysym) {
+    switch (keysym->sym) {
         case SDLK_ESCAPE:
-            if(keysym->mod & KMOD_RALT)
+            if (keysym->mod & KMOD_RALT)
                 g_exit = true;
             break;
         case 'd':
-            if(keysym->mod & KMOD_RALT)
+            if (keysym->mod & KMOD_RALT)
                 gos_RenderEnableDebugDrawCalls();
             break;
     }
 }
 
-static void process_events( void ) {
-
+static void process_events(void) {
     input::beginUpdateMouseState();
 
     SDL_Event event;
-    while( SDL_PollEvent( &event ) ) {
-
-        if(g_focus_lost) {
-            if(event.type != SDL_WINDOWEVENT_FOCUS_GAINED) {
+    while (SDL_PollEvent(&event)) {
+        if (g_focus_lost) {
+            if (event.type != SDL_WINDOWEVENT_FOCUS_GAINED) {
                 continue;
-            } else {
+            }
+            else {
                 g_focus_lost = false;
             }
         }
 
-        switch( event.type ) {
+        switch (event.type) {
         case SDL_KEYDOWN:
-            handle_key_down( &event.key.keysym );
+            handle_key_down(&event.key.keysym);
             // fallthrough
         case SDL_KEYUP:
             input::handleKeyEvent(&event);
@@ -71,19 +71,19 @@ static void process_events( void ) {
         case SDL_QUIT:
             g_exit = true;
             break;
-		case SDL_WINDOWEVENT_RESIZED:
-			{
-				float w = (float)event.window.data1;
-				float h = (float)event.window.data2;
-				glViewport(0, 0, (GLsizei)w, (GLsizei)h);
-                SPEW(("INPUT", "resize event: w: %f h:%f\n", w, h));
-			}
-			break;
+        case SDL_WINDOWEVENT_RESIZED:
+        {
+            float w = (float)event.window.data1;
+            float h = (float)event.window.data2;
+            glViewport(0, 0, (GLsizei)w, (GLsizei)h);
+            SPEW(("INPUT", "resize event: w: %f h:%f\n", w, h));
+        }
+        break;
         case SDL_WINDOWEVENT_FOCUS_LOST:
             g_focus_lost = true;
             break;
         case SDL_MOUSEMOTION:
-            input::handleMouseMotion(&event); 
+            input::handleMouseMotion(&event);
             break;
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
@@ -101,15 +101,15 @@ static void process_events( void ) {
 
 extern bool g_disable_quads;
 
-static void draw_screen( void )
+static void draw_screen(void)
 {
     g_disable_quads = false;
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glCullFace(GL_FRONT);
     //CHECK_GL_ERROR;
-    
-	const int viewport_w = Environment.drawableWidth;
-	const int viewport_h = Environment.drawableHeight;
+
+    const int viewport_w = Environment.drawableWidth;
+    const int viewport_h = Environment.drawableHeight;
     glViewport(0, 0, viewport_w, viewport_h);
 #if 0
     mat4 proj;
@@ -134,7 +134,7 @@ static void draw_screen( void )
     gos_DrawQuads(&q[0], 4);
     g_disable_quads = true;
 #endif
-	/*
+    /*
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadTransposeMatrixf((const float*)proj);
@@ -142,13 +142,13 @@ static void draw_screen( void )
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
     glLoadTransposeMatrixf((const float*)viewM);
-	*/
+    */
 
     CHECK_GL_ERROR;
 
     // TODO: reset all states to sane defaults!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     glDepthMask(GL_TRUE);
-    glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     gos_RendererBeginFrame();
     Environment.UpdateRenderers();
@@ -160,66 +160,65 @@ static void draw_screen( void )
 
 extern float frameRate;
 
-
 const char* getStringForType(GLenum type)
 {
-	switch (type)
-	{
-	case GL_DEBUG_TYPE_ERROR: return "DEBUG_TYPE_ERROR";
-	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEBUG_TYPE_DEPRECATED_BEHAVIOR";
-	case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "DEBUG_TYPE_UNDEFINED_BEHAVIOR";
-	case GL_DEBUG_TYPE_PERFORMANCE: return "DEBUG_TYPE_PERFORMANCE";
-	case GL_DEBUG_TYPE_PORTABILITY: return "DEBUG_TYPE_PORTABILITY";
-	case GL_DEBUG_TYPE_MARKER: return "DEBUG_TYPE_MARKER";
-	case GL_DEBUG_TYPE_PUSH_GROUP: return "DEBUG_TYPE_PUSH_GROUP";
-	case GL_DEBUG_TYPE_POP_GROUP: return "DEBUG_TYPE_POP_GROUP";
-	case GL_DEBUG_TYPE_OTHER: return "DEBUG_TYPE_OTHER";
-	default: return "(undefined)";
-	}
+    switch (type)
+    {
+    case GL_DEBUG_TYPE_ERROR: return "DEBUG_TYPE_ERROR";
+    case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: return "DEBUG_TYPE_DEPRECATED_BEHAVIOR";
+    case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR: return "DEBUG_TYPE_UNDEFINED_BEHAVIOR";
+    case GL_DEBUG_TYPE_PERFORMANCE: return "DEBUG_TYPE_PERFORMANCE";
+    case GL_DEBUG_TYPE_PORTABILITY: return "DEBUG_TYPE_PORTABILITY";
+    case GL_DEBUG_TYPE_MARKER: return "DEBUG_TYPE_MARKER";
+    case GL_DEBUG_TYPE_PUSH_GROUP: return "DEBUG_TYPE_PUSH_GROUP";
+    case GL_DEBUG_TYPE_POP_GROUP: return "DEBUG_TYPE_POP_GROUP";
+    case GL_DEBUG_TYPE_OTHER: return "DEBUG_TYPE_OTHER";
+    default: return "(undefined)";
+    }
 }
 
 const char* getStringForSource(GLenum type)
 {
-	switch (type)
-	{
-	case GL_DEBUG_SOURCE_API: return "DEBUG_SOURCE_API";
-	case GL_DEBUG_SOURCE_SHADER_COMPILER: return "DEBUG_SOURCE_SHADER_COMPILER";
-	case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "DEBUG_SOURCE_WINDOW_SYSTEM";
-	case GL_DEBUG_SOURCE_THIRD_PARTY: return "DEBUG_SOURCE_THIRD_PARTY";
-	case GL_DEBUG_SOURCE_APPLICATION: return "DEBUG_SOURCE_APPLICATION";
-	case GL_DEBUG_SOURCE_OTHER: return "DEBUG_SOURCE_OTHER";
-	default: return "(undefined)";
-	}
+    switch (type)
+    {
+    case GL_DEBUG_SOURCE_API: return "DEBUG_SOURCE_API";
+    case GL_DEBUG_SOURCE_SHADER_COMPILER: return "DEBUG_SOURCE_SHADER_COMPILER";
+    case GL_DEBUG_SOURCE_WINDOW_SYSTEM: return "DEBUG_SOURCE_WINDOW_SYSTEM";
+    case GL_DEBUG_SOURCE_THIRD_PARTY: return "DEBUG_SOURCE_THIRD_PARTY";
+    case GL_DEBUG_SOURCE_APPLICATION: return "DEBUG_SOURCE_APPLICATION";
+    case GL_DEBUG_SOURCE_OTHER: return "DEBUG_SOURCE_OTHER";
+    default: return "(undefined)";
+    }
 }
 
 const char* getStringForSeverity(GLenum type)
 {
-	switch (type)
-	{
-	case GL_DEBUG_SEVERITY_HIGH: return "DEBUG_SEVERITY_HIGH";
-	case GL_DEBUG_SEVERITY_MEDIUM: return "DEBUG_SEVERITY_MEDIUM";
-	case GL_DEBUG_SEVERITY_LOW: return "DEBUG_SEVERITY_LOW";
-	case GL_DEBUG_SEVERITY_NOTIFICATION: return "DEBUG_SEVERITY_NOTIFICATION";
-	default: return "(undefined)";
-	}
+    switch (type)
+    {
+    case GL_DEBUG_SEVERITY_HIGH: return "DEBUG_SEVERITY_HIGH";
+    case GL_DEBUG_SEVERITY_MEDIUM: return "DEBUG_SEVERITY_MEDIUM";
+    case GL_DEBUG_SEVERITY_LOW: return "DEBUG_SEVERITY_LOW";
+    case GL_DEBUG_SEVERITY_NOTIFICATION: return "DEBUG_SEVERITY_NOTIFICATION";
+    default: return "(undefined)";
+    }
 }
-//typedef void (GLAPIENTRY *GLDEBUGPROCARB)(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam);
+
 #ifdef PLATFORM_WINDOWS
 void GLAPIENTRY OpenGLDebugLog(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam)
 #else
 void GLAPIENTRY OpenGLDebugLog(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, GLvoid* userParam)
 #endif
 {
-	if (severity != GL_DEBUG_SEVERITY_NOTIFICATION && severity != GL_DEBUG_SEVERITY_LOW)
-	{
-		printf("Type: %s; Source: %s; ID: %d; Severity : %s\n",
-			getStringForType(type),
-			getStringForSource(source),
-			id,
-			getStringForSeverity(severity)
-		);
-		printf("Message : %s\n", message);
-	}
+    if (severity != GL_DEBUG_SEVERITY_NOTIFICATION && severity != GL_DEBUG_SEVERITY_LOW)
+    {
+        printf("Type: %s; Source: %s; ID: %d; Severity : %s\n",
+            getStringForType(type),
+            getStringForSource(source),
+            id,
+            getStringForSeverity(severity)
+        );
+        printf("Message : %s\n", message);
+    }
 }
 
 #ifndef DISABLE_GAMEOS_MAIN
@@ -227,15 +226,27 @@ int main(int argc, char** argv)
 {
     //signal(SIGTRAP, SIG_IGN);
 
+    // Redirect stdout + stderr to a log file so diagnostic output survives
+    // past the console window closing. "w" truncates on each run. _IONBF
+    // (unbuffered) guarantees every byte hits disk immediately — MSVC treats
+    // _IOLBF as _IOFBF, so buffered output would be lost on a hard crash.
+    if (FILE* logfp = freopen("mc2_stdout.log", "w", stdout))
+    {
+        setvbuf(logfp, NULL, _IONBF, 0);
+        freopen("mc2_stdout.log", "a", stderr);
+        setvbuf(stderr, NULL, _IONBF, 0);
+        fprintf(logfp, "[LogInit] stdout redirected OK\n");
+    }
+
     // gather command line
-	size_t cmdline_len = 0;
-    for(int i=0;i<argc;++i) {
+    size_t cmdline_len = 0;
+    for (int i = 0; i < argc; ++i) {
         cmdline_len += strlen(argv[i]);
         cmdline_len += 1; // ' '
     }
     char* cmdline = new char[cmdline_len + 1];
     size_t offset = 0;
-    for(int i=0;i<argc;++i) {
+    for (int i = 0; i < argc; ++i) {
         size_t arglen = strlen(argv[i]);
         memcpy(cmdline + offset, argv[i], arglen);
         cmdline[offset + arglen] = ' ';
@@ -246,6 +257,13 @@ int main(int argc, char** argv)
     // fills in Environment structure
     GetGameOSEnvironment(cmdline);
 
+    std::cout << "[Main] Environment.screenWidth: " << Environment.screenWidth << ", Environment.screenHeight: " << Environment.screenHeight << std::endl;
+    if (Environment.screenWidth <= 0 || Environment.screenHeight <= 0) {
+        std::cerr << "[Main] Error: Invalid screen dimensions. Defaulting to 1024x768.\n";
+        Environment.screenWidth = 1024;
+        Environment.screenHeight = 768;
+    }
+
     delete[] cmdline;
     cmdline = NULL;
 
@@ -253,11 +271,19 @@ int main(int argc, char** argv)
     int h = Environment.screenHeight;
 
     graphics::RenderWindowHandle win = graphics::create_window("mc2", w, h);
-    if(!win)
+    if (!win)
         return 1;
 
+    // Set OpenGL context attributes for compatibility profile and OpenGL 2.1
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
     graphics::RenderContextHandle ctx = graphics::init_render_context(win);
-    if(!ctx)
+    if (!ctx)
         return 1;
 
     graphics::make_current_context(ctx);
@@ -269,22 +295,16 @@ int main(int argc, char** argv)
         return 1;
     }
 
-	glEnable(GL_DEBUG_OUTPUT);
-	glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-	//glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 76, 1, "My debug group");
-	glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
-	glDebugMessageCallbackARB((GLDEBUGPROC)&OpenGLDebugLog, NULL);
-
+    glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
+    glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
+    glDebugMessageCallbackARB((GLDEBUGPROC)&OpenGLDebugLog, NULL);
 
     SPEW(("GRAPHICS", "Status: Using GLEW %s\n", glewGetString(GLEW_VERSION)));
-    //if ((!GLEW_ARB_vertex_program || !GLEW_ARB_fragment_program))
-    //{
-     //   SPEW(("GRAPHICS", "No shader program support\n"));
-      //  return 1;
-    //}
 
-    if(!glewIsSupported("GL_VERSION_3_0")) {
-        SPEW(("GRAPHICS", "Minimum required OpenGL version is 3.0\n"));
+    // Update version check to require OpenGL 2.1
+    if (!glewIsSupported("GL_VERSION_2_1")) {
+        SPEW(("GRAPHICS", "Minimum required OpenGL version is 2.1\n"));
         return 1;
     }
 
@@ -294,46 +314,49 @@ int main(int argc, char** argv)
     int glsl_maj = 0, glsl_min = 0;
     sscanf(glsl_version, "%d.%d", &glsl_maj, &glsl_min);
 
-    if(glsl_maj < 3 || (glsl_maj==3 && glsl_min < 30) ) {
-        SPEW(("GRAPHICS", "Minimum required OpenGL version is 330 ES, current: %d.%d\n", glsl_maj, glsl_min));
+    // Update GLSL version check to require 1.20 (compatible with OpenGL 2.1)
+    if (glsl_maj < 1 || (glsl_maj == 1 && glsl_min < 20)) {
+        SPEW(("GRAPHICS", "Minimum required GLSL version is 1.20, current: %d.%d\n", glsl_maj, glsl_min));
         return 1;
     }
 
-    char version[16] = {0};
+    char version[16] = { 0 };
     snprintf(version, sizeof(version), "%d%d", glsl_maj, glsl_min);
     SPEW(("GRAPHICS", "Using %s shader version\n", version));
 
     gos_CreateRenderer(ctx, win, w, h);
-    if(!gos_CreateAudio())
-    {   // not an error
+    std::cout << "[Main] Drawable size: " << Environment.drawableWidth << "x" << Environment.drawableHeight << "\n";
+    if (!gos_CreateAudio())
+    {
+        // not an error
         SPEW(("AUDIO", "Failed to create audio\n"));
     }
 
     Environment.InitializeGameEngine();
 
 #if 0
-	float aspect = (float)w/(float)h;
-	mat4 proj_mat = frustumProjMatrix(-aspect*0.5f, aspect*0.5f, -.5f, .5f, 1.0f, 100.0f);
-	g_camera.set_projection(proj_mat);
-	g_camera.set_view(mat4::translation(vec3(0, 0, -16)));
+    float aspect = (float)w / (float)h;
+    mat4 proj_mat = frustumProjMatrix(-aspect * 0.5f, aspect * 0.5f, -.5f, .5f, 1.0f, 100.0f);
+    g_camera.set_projection(proj_mat);
+    g_camera.set_view(mat4::translation(vec3(0, 0, -16)));
 #endif
 
-	timing::init();
+    timing::init();
 
-    while( !g_exit ) {
+    while (!g_exit) {
+        uint64_t start_tick = timing::gettickcount();
+        timing::sleep(10 * 1000000);
 
-		uint64_t start_tick = timing::gettickcount();
-		timing::sleep(10*1000000);
-
-        if(gos_RenderGetEnableDebugDrawCalls()) {
+        if (gos_RenderGetEnableDebugDrawCalls()) {
             gos_RenderUpdateDebugInput();
-        } else {
+        }
+        else {
             Environment.DoGameLogic();
         }
 
         process_events();
 
-		gos_RendererHandleEvents();
+        gos_RendererHandleEvents();
 
         graphics::make_current_context(ctx);
         draw_screen();
@@ -341,11 +364,11 @@ int main(int argc, char** argv)
 
         g_exit |= gosExitGameOS();
 
-		uint64_t end_tick = timing::gettickcount();
-		uint64_t dt = timing::ticks2ms(end_tick - start_tick);
-		frameRate = 1000.0f / (float)dt;
+        uint64_t end_tick = timing::gettickcount();
+        uint64_t dt = timing::ticks2ms(end_tick - start_tick);
+        frameRate = 1000.0f / (float)dt;
     }
-    
+
     Environment.TerminateGameEngine();
 
     gos_DestroyRenderer();
@@ -355,6 +378,9 @@ int main(int argc, char** argv)
 
     gos_DestroyAudio();
 
+    // Diagnostic output lives in mc2_stdout.log (see freopen at top of main),
+    // so no need to pause the console for the user to read it. Let the
+    // process exit cleanly so the console window closes with the game.
     return 0;
 }
 #endif // DISABLE_GAMEOS_MAIN

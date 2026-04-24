@@ -121,6 +121,7 @@ struct gos_Heap
 	gos_Heap*	pChild;
 	DWORD		Magic;
 	int			Instances;
+	size_t BytesAllocated;
 	char		Name[128];
 #ifdef LAB_ONLY
 	DWORD		MaximumSize;

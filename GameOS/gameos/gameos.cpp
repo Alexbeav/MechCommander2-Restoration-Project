@@ -81,7 +81,15 @@ __int64 __stdcall GetCycles()
 	return rdtsc();
 #else
     struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC_RAW, &ts);
+    #ifdef PLATFORM_WINDOWS
+        LARGE_INTEGER frequency, counter;
+        QueryPerformanceFrequency(&frequency);
+        QueryPerformanceCounter(&counter);
+        ts.tv_sec = counter.QuadPart / frequency.QuadPart;
+        ts.tv_nsec = (counter.QuadPart % frequency.QuadPart) * 1e+9 / frequency.QuadPart;
+    #else
+        //clock_gettime(CLOCK_MONOTONIC, &ts);
+    #endif
     int64_t v = ts.tv_sec * 1e+9;
     v += ts.tv_nsec;
     return v;
@@ -200,27 +208,26 @@ void* __cdecl operator new[](size_t size, HGOSHEAP Heap)
 
 void* __stdcall gos_Malloc(size_t bytes, HGOSHEAP Heap/* = 0*/)
 {
-    // FIXME: TODO: !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: TODO: each malloc should record memory allocation for current heap on a stack
-    // FIXME: TODO: so that when Heap destroy() is called all memory will be freed
+    gos_Heap* heap = nullptr;
 
-    /*
-    gosHeap* heap = NULL;
-
-    if(Heap) {
-        heap = (gosHeap*)Heap;
-    } else { 
-        heap = gos_GetCurrentHeap();
+    // Determine the heap to use
+    if (Heap) {
+        heap = (gos_Heap*)Heap;
+    } else {
+        heap = (gos_Heap*)gos_GetCurrentHeap();
     }
 
-    if(heap)
+    // Track memory allocation if a heap is specified
+    if (heap) {
         heap->BytesAllocated += bytes;
-
-    if(bytes > 1024*1024)
-    {
-        PAUSE((""));
     }
-    */
+
+    // Log a warning for large allocations
+    if (bytes > 1024 * 1024) {
+        fprintf(stderr, "Warning: Large allocation of %zu bytes\n", bytes);
+    }
+
+    // Perform the actual allocation
     return malloc(bytes);
 }
 void __stdcall gos_Free(void* ptr)
