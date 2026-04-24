@@ -44,15 +44,21 @@ handler) + our FMV pipeline + crash fixes. Attribution preserved via
 co-author tags. Current discussion thread:
 <https://github.com/ThranduilsRing/mc2-opengl-remastered/discussions/2>.
 
-He is pushing his next batch (FMV, 24-mission test harness, crash-
-handler-with-clipboard, ASan in a few days) shortly. Our plan per
-discussion #2:
+**Current state (2026-04-25):** his last push was 2026-04-22
+(`7d6f9bc`). No reply on discussion #2 yet. His "FMV + test harness +
+ASan in a few days" note was from an earlier exchange; as of 2026-04-25
+that push hasn't landed. We are **holding** non-FMV rebase work until
+he pushes — no ping, no preemptive work. Revisit if another week
+passes with no activity.
 
-1. Continue working in parallel on our own fork for now.
-2. When he pushes, rebase the **non-FMV work** onto his `main` so we
-   share an incremental baseline.
-3. **Park our FMV branch** as-is until we can diff against his FMV,
-   then pick the better parts and do one integration cycle.
+Plan when he pushes:
+
+1. Add his repo as a git remote (`thranduil` → `https://github.com/
+   ThranduilsRing/mc2-opengl-remastered.git`).
+2. Rebase the **non-FMV work** (currently = `input-fixes` branch) onto
+   his `main` so we share an incremental baseline.
+3. **Park our FMV work** for later diff-and-integrate against his FMV,
+   then do one integration cycle picking the better parts.
 
 **Known collision risk at rebase time:** his 2026-04-18 HUD scene-
 split plan will clash with our FMV HUD touchpoints (`controlgui.cpp`,
