@@ -3,7 +3,29 @@
 Living snapshot of current branches, external collaboration, and open
 work. Refreshed when something material changes — not on a calendar.
 
-Last update: 2026-04-25 (compass fix merged, PR #29 opened).
+Last update: 2026-04-25 (scope framed as "vanilla plus"; external
+collaboration de-prioritized in favor of own-fork work).
+
+## Positioning — "MC2 vanilla plus"
+
+The project's shape is **MechCommander 2 vanilla plus** — the
+definitive modern way to play the 2001 retail campaign with quality-of-
+life fixes and compatibility work on top. Not a total conversion, not
+a reimagining, not a mod platform (that's ThranduilsRing's direction).
+
+Focus is own-fork work on the vanilla experience:
+
+- Font rendering quality (current fork regressed vs retail)
+- UI resizing / repositioning for modern resolutions
+- Pre-mission briefing map bug fixes
+- Mission editor revival so the community can author custom missions
+- Crash / stability fixes (FMV pipeline done; more as they surface)
+- Installer + distribution polish
+
+External collaboration is **outbound-only** for now: we send PRs to
+alariq when he starts responding, and we rebase/integrate with
+ThranduilsRing when he pushes his batch or replies on discussion #2.
+No active chasing either direction; when they engage, we engage.
 
 ## Active branches
 

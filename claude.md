@@ -188,15 +188,22 @@ Current index:
 - [`auto-detect-resolution.md`](devlogs/followups/auto-detect-resolution.md) —
   small task: query `SDL_GetCurrentDisplayMode` on first launch to
   replace the hardcoded 1920×1080 in `options.cfg`.
+- [`briefing-map-black-textures.md`](devlogs/followups/briefing-map-black-textures.md) —
+  mission briefing map renders mostly black (water/buildings missing).
+  Likely colorkey/bilinear interaction or palette load. High priority.
 - [`distribution-license-anchor.md`](devlogs/followups/distribution-license-anchor.md) —
-  runtime `Mc2Rel.exe` check in `mc2.exe` + lean data-bundle pass
-  (1.9 GB → 400-600 MB) before public release.
+  installer check is the full model (no runtime DRM); lean data-bundle
+  pass (1.9 GB → 400-600 MB) before public release.
 - [`font-rendering-regression.md`](devlogs/followups/font-rendering-regression.md) —
-  UI font looks worse than retail; upstream `.tga`/`.d3f` → `.bmp`/`.glyph`
-  conversion tool likely fix.
+  UI font looks worse than retail. Fix: port `.d3f` loader into
+  `gosFont::load` so engine reads retail fonts directly (they already
+  ship in `full_game/assets/graphics/`, currently ignored).
 - [`mission-editor-tier0.md`](devlogs/followups/mission-editor-tier0.md) —
   revive 2001 mission editor on VS 2022 + MFC. Tier 0 = 2-5 days.
   Empty `editor-tier0` branch exists for when work starts.
+- [`mission-select-stray-lines.md`](devlogs/followups/mission-select-stray-lines.md) —
+  stray 1-px primitives on mission selection screen. Likely
+  `hiResOffset` double-application, same class as FMV border fix.
 - [`release-installer.md`](devlogs/followups/release-installer.md) —
   Inno Setup installer; three polish items before public release
   (bundle ffmpeg, compression, x64compatible).
