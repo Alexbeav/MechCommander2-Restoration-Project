@@ -77,6 +77,80 @@ share the counter.** From the numbers alone we can't say whether:
 Either is consistent with the current data. The next probe has to break out
 the submissions per shape (compass vs sky) to pick.
 
+### Update 2026-04-25 late: `z=0.99999` in the probe is sky, not compass
+
+The probe's last-submission-wins design picks whichever shape submitted
+last within a 60-tick window. Tracing the render calls:
+
+- `gamecam.cpp:150` — `theSky->render(1)` → `GenericAppearance::render`
+  `depthFixup > 0` → `bldgShape->Render(false, 0.9999999f)` → **sky verts
+  get forceZ = 0.9999999** (far clip).
+- `gamecam.cpp:180` — `compass->render(-1)` → `BldgAppearance::render`
+  `depthFixup < 0` → `bldgShape->Render(false, 0.00001f)` → **compass
+  verts get forceZ = 0.00001** (near clip).
+
+So the `z=0.99999` in the logged sample is a sky submission, not a compass
+one. Compass submissions are happening; the probe just never captured one
+because sky almost always submits more triangles in a 60-frame window and
+wins the "last submit" race.
+
+This reinforces that scenario (b) is plausible — compass might only
+contribute a handful of tris, already visible in the `nodes=2, verts=6`
+the compass pass sees. The bug may be inside that pass (state, texture,
+coords) rather than at the routing level.
+
+## MS original vs our fork (compared 2026-04-25)
+
+The original 2001 Microsoft source (`MC2_Source_Code/Source/MCLib/txmmgr.cpp`
+in the reference checkout) has the **same routing structure** as our fork:
+
+- MS solid pass at `:518` — matches `DRAWSOLID` with no `ISCOMPASS`
+  exclusion. Same as our fork's `:1047`.
+- MS alpha terrain pass at `:575` — requires `ISTERRAIN`, implicitly
+  excludes ISCOMPASS.
+- MS general alpha pass at `:803` — excludes `ISTERRAIN`, `ISSHADOWS`,
+  **`ISCOMPASS`**, `ISCRATERS`. Same as ours.
+- MS dedicated compass pass at `:964` — matches `ISCOMPASS`. Same as ours.
+
+And MS `tgl.cpp` emits the same `MC2_DRAWSOLID | MC2_ISCOMPASS` flag
+combination for HUD-element solid geometry (MS:2367, ours:2688). So the
+"compass geometry arrives in the solid pass and gets drained before the
+compass pass sees it" pattern existed in MS too. It worked there.
+
+**The bug is therefore NOT the three-way routing inconsistency the
+reviewer pointed at.** It is something that changed between MS's pipeline
+and ours that breaks the visible compass without breaking the sky.
+
+The shader-based hardware path added in alariq commit `71b9bdd` (May 2018)
+was the first regression suspect — it adds a new `masterHardwareVertexNodes`
+loop at `txmmgr.cpp:982` that also drains `DRAWSOLID` without ISCOMPASS
+exclusion. **But ruled out for this bug:** `bShadersDrawPathEnabled` is
+initialized `false` at `tgl.cpp:98` and never flipped, so the hardware
+path is currently a no-op.
+
+Remaining regression candidates (none yet tested):
+
+- **OpenGL clip-space Z semantics.** MS used DirectX 8 (Z 0..1); the
+  port uses OpenGL (default Z -1..1). If `forceZ = 0.00001` for the
+  compass doesn't land where expected post-projection, the compass
+  could be clipped by the near plane instead of landing in front.
+- **`theClipper->StartDraw` / clip-plane changes.** Terrain render
+  runs between sky and compass (`gamecam.cpp:152`) and could leave
+  clip-plane state that affects near-plane compass tris.
+- **Texture state leak into compass pass.** The solid pass sets
+  `TextureWrap` / `TextureClamp` but not alpha mode. If a prior pass
+  leaves alpha state incompatible with a translucent compass texture,
+  the compass could render as an opaque bounding quad (black square
+  around the compass area) — which could read as "broken" depending
+  on how it looks in-game.
+- **`BldgAppearance` setup for the compass.** `gamecam.cpp:584`
+  creates it as `new BldgAppearance` and drives it through the
+  building render pipeline. If any building-specific code path
+  changed (e.g. shadow/occlusion logic, highlight color blending,
+  `setObjStatus(OBJECT_STATUS_DESTROYED)` interaction) the compass
+  could be masked or invisible without the flag routing being
+  implicated.
+
 ## Why flag-level exclusion can't fix this cleanly
 
 `isHudElement` controls two behaviors in `TG_Shape::Render`:
@@ -94,48 +168,55 @@ Any fix that touches the pass routing has to first decouple compass from sky.
 
 ### Step 1 — sharper probe (non-invasive)
 
-Modify the existing `[COMPASS_DIAG]` probe at `tgl.cpp:2699` to log the
-`theShape` identity (shape name, pointer, or parent-node name) alongside the
-submission. Or split the counter into two: one for sky nodes, one for compass
-nodes, by looking at `addFlags` plus a way to tell which `TG_Shape` we're in.
+Modify the existing `[COMPASS_DIAG]` probe at `tgl.cpp:2699` so it splits
+per-z-range: submissions with `z < 0.5` go to a "compass-likely" counter,
+submissions with `z > 0.5` go to a "sky-likely" counter. Log both every
+60 frames without resetting inner counters.
 
-Cleanest approach: walk `msl.cpp:1686` where `listOfShapes[i].node->Render(...)`
-is called with `isHudElement`, and tag the MultiShape with an ID/name the
-probe can echo. The probe then reports per-MultiShape counts.
+Also add a probe INSIDE the solid pass at `txmmgr.cpp:1049` that logs,
+per frame, how many vertices with `MC2_ISCOMPASS` are consumed by that
+pass — that tells us directly whether compass verts are being drained
+there vs. reaching the compass pass.
 
-Expected output answers "is sky submitting 575 tris and compass submitting 2,
-or is the compass contributing hundreds too?"
+Expected outputs answer two things at once:
+- How many tris is the compass actually submitting?
+- Is compass geometry being drained by the solid pass (flag-routing
+  regression) or reaching the compass pass intact (regression
+  elsewhere — Z clip, alpha state, texture, BldgAppearance setup)?
 
 ### Step 2 — pick a fix strategy based on Step 1's answer
 
-**If the compass is the 2 triangles already drawn (sky dominates submissions):**
-the compass pass is working; the visible bug is texture/state/coords inside
-its 2 triangles. Investigate:
-- `compass` appearance setup — what texture, what shape file
-- GL state at :1585 (filter mode, alpha threshold)
-- forceZ = 0.99999 → compass pass has `ZCompare=0`, should be fine — but
-  verify no state leak from earlier passes.
+**If the compass reaches the compass pass correctly (nodes/verts count
+matches submission count):** the compass pass is working as designed but
+the output isn't visible. The bug is inside the compass pass itself.
+Investigate in this order:
+- Does the OpenGL Z-clip differ from DirectX? forceZ=0.00001 might be
+  clipped by the near plane in OpenGL default `glDepthRange(0,1)` if
+  projection remaps to -1..1 clip space. Try forceZ=0.01 or 0.1.
+- GL state at the compass pass (`txmmgr.cpp:1580-1640`) — filter mode,
+  alpha threshold, ZCompare/ZWrite. Especially state leaked from the
+  preceding effects/spotlight passes.
+- `BldgAppearance` compass setup — what texture, what shape does the
+  compass appearance point at? Check
+  `appearanceTypeList->getAppearance(BLDG_TYPE << 24, "compass")`.
 
-**If the compass is contributing many triangles mis-routed into the solid
-pass:** decouple the flags. Two options, roughly equal work:
+**If the compass is being drained by the solid pass:** decouple compass
+from sky, then re-apply the exclusion. Two options:
 
-- **Option A — split the flag.** Add `MC2_ISSKY` (next free bit: there's
-  already `MC2_ISHUDLMNT=512` used for a different HUD path;
-  `MC2_ALPHATEST=1024`, so 2048 is free). Have `theSky->setIsHudElement()`
-  still apply the max-bright behavior but tag with `MC2_ISSKY` instead of
-  `MC2_ISCOMPASS`. Sky keeps flowing through the solid/alpha passes (which
-  currently work for it). Re-apply the `MC2_ISCOMPASS` exclusion in the
-  solid pass — now safe because sky is not tagged.
+- **Option B (cheapest, most informative) — don't call `setIsHudElement`
+  on sky at all.** Remove the call at `gamecam.cpp:634`. Test whether
+  sky still renders correctly without the max-bright vertex-color clamp.
+  If yes, this is the smallest possible change to decouple the two —
+  we can then safely re-apply the solid-pass `ISCOMPASS` exclusion.
 
-- **Option B — decouple at the appearance level.** Add a boolean
-  `isSky` parameter alongside `isHudElement` in the render call chain
-  (`msl.cpp:1686`, `tgl.cpp:2527`). The max-bright code at `:1829` still
-  fires for both; only the `MC2_ISCOMPASS` emission at `:2602` etc. is
-  gated off for sky. Plumbing is deeper but no new flag bit needed.
+- **Option A (fallback if sky loses max-bright) — split the flag.** Add
+  `MC2_ISSKY` (next free bit: `2048`). Have `theSky->setIsHudElement()`
+  still apply the max-bright behavior but tag with `MC2_ISSKY` instead
+  of `MC2_ISCOMPASS`. Sky keeps flowing through the solid/alpha passes;
+  compass flows through its dedicated pass.
 
-Option A is less invasive — one flag bit, one call-site change
-(`gamecam.cpp:634`), one exclusion re-add. Prefer it unless there's a
-reason the TG_Shape path needs a parameter instead of a flag.
+Start with Option B — it's one line of code. If sky still looks right,
+re-attempt the `MC2_ISCOMPASS` exclusion in the solid pass.
 
 ### Step 3 — verify the actual compass fix works
 
