@@ -275,24 +275,17 @@ architecture and should not be followed.
   to the adjacent monitor without losing focus; likely environmental
   (another process calling `ClipCursor`, DPI-seam quirk, or monitor-
   alignment utility) rather than a code-side miss.
-- `compass-fix` — 7 commits ahead of master. First fix (exclude
-  `MC2_ISCOMPASS` from solid pass) reverted 2026-04-25 because
-  `MC2_ISCOMPASS` tags sky too. Four rounds of probes proved compass
-  geometry reaches the compass pass intact with valid coords,
-  texture, and vertex alpha. My follow-up "shader XYZRHW divide"
-  theory was **retracted** 2026-04-25 late on evaluator feedback —
-  the math was wrong (gl_Position is a 4-vector; the GPU's
-  perspective divide cancels the shader's divide by rhw). Current
-  best theory: alpha-test fragment discard. The compass pass enables
-  `gos_State_AlphaTest, 1` (`mclib/txmmgr.cpp:1600`) which selects
-  the `ALPHA_TEST` variant of `shaders/gos_tex_vertex.frag` that
-  discards fragments with `tex_color.a < 0.5`. If the compass
-  texture's sampled alpha is below 0.5 across its visible region,
-  every fragment gets discarded. Next experiment (per evaluator):
-  force fragment to solid color OR disable alpha test for just the
-  compass pass and see if it appears. Full devlog at
-  `devlogs/compass_investigation_2026-04-25.md` with retraction
-  section.
+- `compass-fix` — retired (squash-merged into master 2026-04-25 as
+  `379c8d5`). Root cause: compass pass at `mclib/txmmgr.cpp` set
+  `gos_State_AlphaTest = 1`, which selected the `ALPHA_TEST` variant
+  of `shaders/gos_tex_vertex.frag` that discards fragments with
+  `tex_color.a < 0.5`. The compass HUD texture has soft-alpha edges,
+  so every visible pixel was discarded; `AlphaMode = AlphaInvAlpha`
+  on the preceding line already handles transparency via blending.
+  Fix: flip to `AlphaTest = 0` for that pass only. External
+  evaluator diagnosed it after catching a vector-math error in my
+  earlier (wrong) "XYZRHW shader divide" theory. Full investigation
+  trail preserved in `devlogs/closed/compass_investigation_2026-04-25.md`.
 - `editor-tier0` — empty branch off master, ready for when editor work
   starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
   (currently in `.gitignore`). Plan details in
@@ -357,17 +350,13 @@ A pointed external review landed at mid-session. Four items flagged:
 - **High — `setMousePos` coord bug** at `mclib/userinput.h:419` →
   `GameOS/gameos/gameos_input.cpp:78`. **Fixed** on `input-fixes`.
 - **Medium — compass multi-pass routing** in `mclib/txmmgr.cpp`
-  (solid pass :1049 consumes `MC2_ISCOMPASS`, alpha pass :1413
-  excludes it, dedicated pass :1585 only sees part). **Not the
-  real bug.** Investigation on 2026-04-25 (first fix reverted,
-  then 4 rounds of probes) proved routing is correct — compass
-  geometry reaches the compass pass intact. My follow-up
-  shader-XYZRHW-divide theory was retracted 2026-04-25 late after
-  evaluator pointed out the math error. Current suspect: alpha-test
-  fragment discard (compass pass enables alpha test; fragment
-  shader discards on `tex_color.a < 0.5`). Next experiment: force
-  solid color OR disable alpha test for compass pass. See
-  `devlogs/compass_investigation_2026-04-25.md` retraction section.
+  (the reviewer flagged a three-way routing inconsistency on
+  `MC2_ISCOMPASS`). **Resolved 2026-04-25 but not via that
+  routing.** Routing was correct; the real bug was an alpha-test
+  fragment discard at `shaders/gos_tex_vertex.frag` killing soft-
+  alpha compass pixels. Landed as `379c8d5` on master.
+  Investigation archived at
+  `devlogs/closed/compass_investigation_2026-04-25.md`.
 - **Medium — editor source gitignored** at `.gitignore:97` while
   `MC2_Source_Code/Source/Editor/EditorMFC.vcproj:4` exists.
   **Open** — unignore becomes step 0 when editor work starts on
@@ -378,15 +367,10 @@ A pointed external review landed at mid-session. Four items flagged:
 
 ### Next concrete moves
 
-1. **Compass — run the alpha-test experiment.** Evaluator's
-   suggested next step: force the fragment shader to output a
-   solid color (bypass texture sample and discard) OR disable
-   `gos_State_AlphaTest` for only the compass pass. If compass
-   appears: bug is alpha-test / texture-alpha threshold. If still
-   invisible: suspect compass-asset setup (what texture+shape
-   "compass" actually resolves to via `appearanceTypeList->
-   getAppearance(BLDG_TYPE << 24, "compass")` at
-   `gamecam.cpp:583`). See `devlogs/compass_investigation_2026-04-25.md`.
+1. **Input-fixes stability check.** Only remaining investigation
+   branch with in-flight work. The ClipCursor reinforcement has
+   a known 1-pixel-column residual on one 3-monitor setup; not
+   urgent, likely environmental.
 2. **Input-fixes stability check.** The ClipCursor reinforcement has
    a known 1-pixel-column residual on one setup; not urgent.
 3. **Wait for ThranduilsRing's next push.** When it lands, start the

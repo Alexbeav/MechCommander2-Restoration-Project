@@ -1,9 +1,48 @@
-# Compass investigation — 2026-04-25
+# Compass investigation — 2026-04-25 (CLOSED)
 
-Branch: `compass-fix`. Status: flag-level fix reverted; root cause narrowed to
-a D3D8→OpenGL XYZRHW translation bug in `shaders/gos_tex_vertex.vert:17`.
-Not yet patched — want an external review of the proposed fix before trying
-it (previous "fix" broke sky).
+**Status: resolved 2026-04-25.** Fix landed on master in
+`379c8d5` (squash-merge of the `compass-fix` branch).
+
+## Resolution
+
+The compass pass at `mclib/txmmgr.cpp:1585` set
+`gos_State_AlphaTest = 1`, which selects the `ALPHA_TEST` variant of
+`shaders/gos_tex_vertex.frag`:
+
+```glsl
+if(tex_color.a < 0.5)
+    discard;
+```
+
+The compass HUD texture has soft-alpha edges (semi-transparent anti-
+aliased pixels). Every fragment below the hard-coded 0.5 threshold was
+discarded, killing the entire visible compass. `AlphaMode =
+AlphaInvAlpha` on the preceding line already handles transparency via
+standard blending — the discard was both redundant and destructive.
+
+Fix: `gos_State_AlphaTest = 0` for this pass only. MS's 2001 D3D8
+original tolerated AlphaTest=1 because its reference threshold
+differed; our OpenGL port's hard-coded 0.5 doesn't.
+
+## Credit
+
+External evaluator identified the correct mechanism after catching a
+vector-math error in my earlier (wrong) "XYZRHW shader divide" theory
+and redirecting investigation from vertex math to fragment visibility.
+See "Retracted: earlier XYZRHW-shader-divide theory" section below.
+
+## What this devlog is now
+
+Historical record of the investigation — kept for the lessons, not as
+guidance for future work. Probes referenced here (`[COMPASS_DIAG]`) are
+no longer in the tree. Moved to `devlogs/closed/` alongside the FMV
+investigation logs.
+
+---
+
+## Original investigation follows (preserved for the record)
+
+Branch: `compass-fix` (retired; squash-merged to master).
 
 ## TL;DR (2026-04-25 end-of-day, corrected 2026-04-25 late)
 
