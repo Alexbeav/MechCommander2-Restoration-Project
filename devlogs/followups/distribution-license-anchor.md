@@ -17,22 +17,19 @@ Falcon BMS's "bring your own Falcon 4" approach — distribution
 includes patched binary + our data, but requires the user to supply a
 retail `Mc2Rel.exe` as a license anchor.
 
-## Current state
+## Current state — and the line we won't cross
 
 - `release/Install-Patch.bat` enforces the anchor at install time by
   refusing to run unless `Mc2Rel.exe` is present in the target
-  directory.
-- `mc2.exe` itself does **not** check for `Mc2Rel.exe` at startup. An
-  attacker can bypass the installer's check by creating an empty file
-  of that name.
-
-## Open — runtime anchor check in `mc2.exe`
-
-Add an early-init check (likely in `GameOS/gameosmain.cpp` before SDL
-init) that calls `fileExists("Mc2Rel.exe")` and aborts with a
-MessageBox if missing. ~15-20 lines. Makes the anchor harder to strip
-without actually patching the binary. Not DRM — just a formal
-declaration of the ownership requirement.
+  directory. **This is sufficient.** Installer-time check is
+  the license anchor; it establishes the "bring your own copy"
+  pattern without baking ownership checks into the binary.
+- **We will not add a runtime check in `mc2.exe`.** If a user
+  bypasses the installer (e.g. by creating an empty file named
+  `Mc2Rel.exe`), they've taken a deliberate step that crosses the
+  line themselves. Adding a runtime probe in the binary is DRM by
+  another name, and that's not the project's shape. Decided
+  2026-04-25. Don't reintroduce.
 
 ## Open — lean distribution pass
 
