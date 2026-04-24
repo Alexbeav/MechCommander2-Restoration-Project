@@ -2,129 +2,61 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Build Commands
+## Build
 
-### IMPORTANT: Testing Protocol
-**DO NOT run the game.** The user will run `full_game/mc2.exe` themselves after each build to verify changes. Only build the project — never attempt to execute mc2.exe.
+### Testing protocol — critical
 
-The `mc2` CMake target's POST_BUILD step automatically copies `build64/Release/mc2.exe` to `full_game/mc2.exe` so the user can re-test immediately after each build. Do not strip that POST_BUILD command, and do not invoke a separate copy yourself — the build handles it.
+**DO NOT run the game.** The user runs `full_game/mc2.exe` themselves
+after each build to verify changes. Only build — never execute
+`mc2.exe`.
 
-### Prerequisites
-- **Visual Studio 2022** with C++ build tools
-- **CMake** (3.10 or higher)
-- **Windows SDK** 10.0.22621.0 or similar
-- **Git** (for cloning the repository)
+The `mc2` CMake target's POST_BUILD step automatically copies
+`build64/Release/mc2.exe` to `full_game/mc2.exe`. Do not strip the
+POST_BUILD command and do not invoke a separate copy — the build
+handles it.
 
-### Windows Build Process (TESTED & WORKING)
+### Standard command
 
-**Step 1: Extract 3rdparty Dependencies**
-The repository includes a `3rdparty.zip` file that contains all necessary libraries. This needs to be extracted to a temporary `3rdparty/` folder (this folder is not committed to git):
 ```
-mc2/
-├── 3rdparty.zip          (committed)
-├── 3rdparty/             (temporary, extract from zip)
-│   ├── cmake/
-│   ├── include/
-│   └── lib/
-│       ├── x64/
-│       └── x86/
+cmake --build build64 --config Release --target mc2
 ```
 
-**Step 2: Extract Dependencies (if not using setup script)**
-```bash
-# Extract 3rdparty.zip to create temporary 3rdparty/ folder
-powershell -Command "Expand-Archive -Path '3rdparty.zip' -DestinationPath '.' -Force"
-```
+First-time setup (extract `3rdparty.zip`, run CMake configure, etc.):
+see `BUILD-WIN.md` for the full instructions. Quick-start scripts
+`setup_build_environment.bat` and `build_windows.bat` handle the
+whole dance.
 
-**Step 3: Main Application Build**
-```bash
-# Navigate to project root
-cd G:/games source code/games/mc2
+### Build outputs
 
-# Create build directory
-mkdir build64
-cd build64
+- Main executable: `build64/Release/mc2.exe` (auto-copied to
+  `full_game/mc2.exe` — see above)
+- Resource DLL: `build64/out/res/Release/mc2res_64.dll`
+- Data tools: `build64/out/data_tools/Release/` (aseconv, makefst,
+  makersp, pak)
+- Text tool: `build64/out/text_tool/Release/text_tool.exe`
+- Viewer: `build64/out/Viewer/Release/viewer.exe`
+- Standalone FMV reference player:
+  `--target clean_mp4_player` (not `mp4_standalone` — removed)
 
-# Configure with CMake - use ABSOLUTE path to 3rdparty
-cmake.exe -G "Visual Studio 17 2022" -DCMAKE_PREFIX_PATH="G:/games source code/games/mc2/3rdparty" -DCMAKE_LIBRARY_ARCHITECTURE=x64 ..
+Expect many `size_t→int` truncation warnings; legacy codebase, not
+load-bearing.
 
-# Build the project
-cmake --build . --config Release
-```
+### Data
 
-**Step 4: Resource DLL Build**
-```bash
-# Navigate to res directory
-cd G:/games source code/games/mc2/res
+Game data builds from the separate `mc2srcdata` repo. Copy
+`build64/out/data_tools/Release/*` + `3rdparty/lib/x64/*.dll` to
+`mc2srcdata/build_scripts/` and `make all`.
 
-# Create build directory
-mkdir build64
-cd build64
+### Debug build flags
 
-# Configure resource DLL build
-cmake.exe -G "Visual Studio 17 2022" -DCMAKE_LIBRARY_ARCHITECTURE=x64 ..
+`-D_ARMOR -D_DEBUG -DBUGLOG -DLAB_ONLY`. Release builds compile out
+`gosASSERT` — see `lesson_packaging_fopen_paths.md` for how that
+interacts with missing-file crashes.
 
-# Build the DLL
-cmake --build . --config Release
-```
+### Log file
 
-**Step 5: Prepare String Resources**
-```bash
-# Copy the pre-generated string resources to res directory
-copy "test_scripts\res_conv\strings.res.cpp" "res\"
-copy "test_scripts\res_conv\strings.res.h" "res\"
-```
-
-### Build Outputs
-After successful build, you'll find:
-- **Main executable**: `build64/Release/mc2.exe`
-- **Resource DLL**: `build64/out/res/Release/mc2res_64.dll`
-- **Data tools**: `build64/out/data_tools/Release/` (aseconv.exe, makefst.exe, makersp.exe, pak.exe)
-- **Text tool**: `build64/out/text_tool/Release/text_tool.exe`
-- **Viewer**: `build64/out/Viewer/Release/viewer.exe`
-
-### Build Notes
-- The build generates many warnings about type conversions (size_t to int, etc.) but these are expected for this legacy codebase
-- The CMake configuration automatically detects x64 vs x86 architecture
-- SDL2, GLEW, and zlib are all properly detected from the 3rdparty folder
-- The resource DLL is built as mc2res_64.dll for 64-bit builds
-
-### Data Building
-Game data is built separately using the mc2srcdata repository. Use the tools from the build output:
-- Copy all tools from `build64/out/data_tools/Release/` to `mc2srcdata/build_scripts/`
-- Copy required DLLs from `3rdparty/lib/x64/` to the same folder
-- Run `make all` in the build_scripts folder
-
-### Quick Start Scripts
-Two convenience scripts are provided:
-- **`setup_build_environment.bat`** - Extracts 3rdparty.zip and checks build tools
-- **`build_windows.bat`** - Complete build process for Windows
-
-**Note:** The scripts automatically extract `3rdparty.zip` to a temporary `3rdparty/` folder. This folder is not committed to git and should be treated as a build artifact. The original `3rdparty.zip` remains in the repository for convenience.
-
-### Common Issues and Solutions
-
-**CMake can't find libraries:**
-- Ensure you're using the ABSOLUTE path to the 3rdparty folder
-- Verify that 3rdparty.zip was extracted properly
-- Check that you're using the correct architecture (x64)
-
-**Visual Studio not found:**
-- Install Visual Studio 2022 with C++ Desktop Development workload
-- Run builds from Visual Studio Developer Command Prompt
-- Ensure Windows SDK is installed
-
-**Build warnings:**
-- The build generates many warnings about type conversions (size_t to int, etc.)
-- These are expected for this legacy 2001 codebase and don't affect functionality
-
-**Missing DLLs at runtime:**
-- Copy all DLLs from `3rdparty/lib/x64/` to your executable directory
-- Required DLLs: SDL2.dll, SDL2_mixer.dll, SDL2_ttf.dll, glew32.dll, zlib1.dll
-
-**String resource errors:**
-- Copy strings.res.cpp and strings.res.h from `test_scripts/res_conv/` to `res/`
-- These are pre-generated and don't need to be rebuilt
+`full_game/mc2_stdout.log`. stdout+stderr redirected there by
+`gameosmain.cpp` (`_IONBF`, `"w"` mode — truncates each run).
 
 ## Architecture Overview
 
@@ -177,16 +109,8 @@ This is MechCommander 2, a real-time strategy game engine with these major compo
 - Sound effects, music, and voice-over support
 - 3D positional audio (partially implemented)
 
-### Build Configuration
-- Debug builds use `-D_ARMOR -D_DEBUG -DBUGLOG -DLAB_ONLY` flags
-- Cross-platform compilation with Windows and Linux support
-- Uses CMake with separate configurations for x86/x64
-
-### Testing
-No automated test framework is present. Testing is manual gameplay validation.
-
-### Data Files
-Game uses custom file formats (.fst, .pak, .tga) built from source assets in separate mc2srcdata repository.
+No automated test framework. Testing is manual gameplay validation.
+Cross-platform compilation with Windows and Linux support.
 
 ## MP4 Video Playback
 
@@ -208,35 +132,23 @@ Two video classes coexist; both are linked into `mc2.exe`:
   (`forcegroupbar.cpp` / `mechicon.cpp`), full-screen cinematics
   (`logistics.cpp::playFullScreenVideo`). To be removed in step 8 of `FMV_DESIGN.md` §10.
 
-### Pilot-portrait videos — fixed 2026-04-23
+### Pilot-portrait videos
 
-Two bugs stacked, both resolved:
+Fixed 2026-04-23 (commits `575afc6`, `787cbb0`). Two bugs stacked: an
+`sws_scale` SIMD tail overrun (memory lesson:
+`lesson_sws_scale_simd_overrun.md`) and a UAF on `ForceGroupIcon::bMovie`
+(memory: `project_pilot_video_crash.md`). See commit messages for full
+detail. **Do not reintroduce:** `bMovie` must be per-instance, not
+`static`; all `sws_scale` RGBA destination buffers need a 64-byte tail
+guard even with `av_image_get_buffer_size(align=1)`.
 
-1. **sws_scale SIMD tail overrun** (commit `575afc6`). `sws_scale` with `SWS_BILINEAR`
-   overruns the RGBA destination buffer by up to ~32 bytes on SIMD-unfriendly widths
-   (76-wide pilot-portrait clips). `av_image_get_buffer_size(align=1)` allocates exactly
-   W*H*4, so the overrun corrupts heap metadata and raises `STATUS_HEAP_CORRUPTION` on
-   the next heap op (usually inside `SDL_GL_SwapWindow`). Fixed by keeping `align=1` for
-   packed downstream layout, but allocating `rgbBuf` and `pendingData` with a 64-byte tail
-   guard across `mp4player.cpp`, `mc2movie.cpp`, and `clean_mp4_player.cpp`. MC2Movie also
-   got pixel-store sanitation (`glPixelStorei(GL_UNPACK_{ALIGNMENT,ROW_LENGTH})`) before
-   `glTexSubImage2D` so stale row-length state can't skew frames.
+**Open follow-up:** `forcegroupbar.cpp:502` still initializes pilot
+video with `loop=true`. Pilot acks are one-shot voice-overs; the
+original intent is unclear. Non-crash behavioral tweak, revisit later.
 
-2. **`ForceGroupIcon::bMovie` UAF** (commit `787cbb0`). `bMovie` was a `static` shared
-   across all icon instances with four delete paths licensed to free it. Demoted to a
-   per-instance member with the invariant "at most one icon holds bMovie non-null at a
-   time," owned structurally by `ForceGroupBar::setPilotVideo()`. Defensive pre-allocation
-   walk catches invariant violations at the call site.
-
-Verified end-to-end: MSFT intro + CINEMA1-5, pre-mission briefing, in-mission cinematics,
-pilot acknowledgement videos. The `prefs.pilotVideos = false` override has been removed.
-
-**Follow-up tracked separately:** `forcegroupbar.cpp:502` still initializes the pilot
-video with `loop=true`. Pilot acks are one-shot voice-overs; the original intent is
-unclear. Revisit as a non-crash behavioral tweak.
-
-Decode/audio internals are identical between the two classes (cloned, not shared). The
-differences are texture ownership and rendering responsibility.
+Decode/audio internals are identical between `MC2Movie` and `MP4Player`
+(cloned, not shared). The differences are texture ownership and
+rendering responsibility.
 
 ### Shared properties (both classes)
 - **Audio-master clock** with wall-clock fallback; video frames are **PTS-gated**.
@@ -258,323 +170,33 @@ Historical session logs that previously lived in this section have been moved to
 `archive/fmv-dead-code/docs/CLAUDE_md_fmv_history.md`. They describe the abandoned
 architecture and should not be followed.
 
-## Project state snapshot (2026-04-24)
+## Project state and follow-ups
 
-### Active branches
+For current branch topology, collaboration status, upstream PRs, and
+next concrete moves, read `devlogs/project_state.md`. Refreshed when
+something material changes (merge, new PR, new external milestone) —
+not on a calendar.
 
-- `master` — shipping baseline. Has the FMV playback fixes squashed from
-  the retired `fmv-mp4-support` branch (isPlaying gate, `.bik` strip,
-  full-screen rect), campaign-dialog dup fix cherry-picked from the
-  upstream PR, modding guide (`CUSTOM-CAMPAIGNS.md`), editor Tier 0 plan
-  under `devlogs/`, README rewrite.
-- `input-fixes` — 4 commits ahead of master. `gos_SetMousePosition`
-  coord fix, SDL `SDL_SetWindowMouseGrab` at window creation, grab re-
-  assertion on focus events + proper `SDL_WINDOWEVENT` dispatch, and
-  Win32 `ClipCursor` reinforcement. Tested. **Known minor residual:**
-  on one 3-monitor setup the cursor can escape by ~1 column of pixels
-  to the adjacent monitor without losing focus; likely environmental
-  (another process calling `ClipCursor`, DPI-seam quirk, or monitor-
-  alignment utility) rather than a code-side miss.
-- `compass-fix` — retired (squash-merged into master 2026-04-25 as
-  `379c8d5`). Root cause: compass pass at `mclib/txmmgr.cpp` set
-  `gos_State_AlphaTest = 1`, which selected the `ALPHA_TEST` variant
-  of `shaders/gos_tex_vertex.frag` that discards fragments with
-  `tex_color.a < 0.5`. The compass HUD texture has soft-alpha edges,
-  so every visible pixel was discarded; `AlphaMode = AlphaInvAlpha`
-  on the preceding line already handles transparency via blending.
-  Fix: flip to `AlphaTest = 0` for that pass only. External
-  evaluator diagnosed it after catching a vector-math error in my
-  earlier (wrong) "XYZRHW shader divide" theory. Full investigation
-  trail preserved in `devlogs/closed/compass_investigation_2026-04-25.md`.
-- `editor-tier0` — empty branch off master, ready for when editor work
-  starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
-  (currently in `.gitignore`). Plan details in
-  `devlogs/mission_editor_tier0_plan.md`.
-- `fmv-mp4-support` — retired (squash-merged into master on
-  2026-04-24).
-- `fmv-mp4-support-backup` — user's personal safety branch, untouched.
+Each pending follow-up has its own file under `devlogs/followups/`.
+Close one out by deleting the file (or moving to `devlogs/closed/`
+with a resolution note if the investigation is worth preserving).
 
-### External collaboration
+Current index:
 
-**ThranduilsRing** (maintainer of
-[`mc2-opengl-remastered`](https://github.com/ThranduilsRing/mc2-opengl-remastered))
-— agreed to converge our forks. His engine modernization (Tracy
-profiler, render contract, upcoming test harness + ASan + crash
-handler) + our FMV pipeline + crash fixes. Attribution preserved via
-co-author tags. Current discussion thread:
-<https://github.com/ThranduilsRing/mc2-opengl-remastered/discussions/2>.
-
-He is pushing his next batch (FMV, 24-mission test harness, crash-
-handler-with-clipboard, ASan in a few days) shortly. Our plan per
-discussion #2:
-
-1. Continue working in parallel on our own fork for now.
-2. When he pushes, rebase the **non-FMV work** onto his `main` so we
-   share an incremental baseline.
-3. **Park our FMV branch** as-is until we can diff against his FMV,
-   then pick the better parts and do one integration cycle.
-
-**Known collision risk at rebase time:** his 2026-04-18 HUD scene-
-split plan will clash with our FMV HUD touchpoints (`controlgui.cpp`,
-`forcegroupbar.cpp`, `logistics.cpp`, `missionselectionscreen.cpp`).
-Resolve at rebase time, not earlier.
-
-**Open question awaiting his response:** our Inno Setup installer vs.
-his upcoming mod-launcher + Exodus-as-mod distribution model. Either
-retire ours once his launcher is canonical, or keep it as a "vanilla-
-plus-fixes, no mods" entry point.
-
-**On OpenGL → RHI → Vulkan** (his long-term question): yes if Mac is
-a real goal (MoltenVK path). RHI as an intermediate layer first,
-decouples renderer from backend. Not urgent.
-
-### Upstream PRs to alariq
-
-Four PRs open on `alariq/mc2`, plus two referenced issues:
-
-| # | Topic | Notes |
-|---|---|---|
-| [#23](https://github.com/alariq/mc2/pull/23) | UI scaling | Rebased onto current `upstream/master` on 2026-04-24. Stalled through 2025; bumped back into alariq's inbox. |
-| [#24](https://github.com/alariq/mc2/pull/24) | Windows build improvements | Rebased on top of the updated #23. Blocked on #23 merging first. |
-| [#26](https://github.com/alariq/mc2/pull/26) | FMV pipeline | Branch `fmv-ffmpeg-pipeline` — fresh today, closes #22. |
-| [#28](https://github.com/alariq/mc2/pull/28) | Campaign-dialog dup fix | Closes #27, trivial to review, easiest possible yes. |
-
-Issues: [#22](https://github.com/alariq/mc2/issues/22) (FMVs missing,
-user-opened) and [#27](https://github.com/alariq/mc2/issues/27) (dup
-bug, includes screenshot).
-
-### External reviewer findings (2026-04-24)
-
-A pointed external review landed at mid-session. Four items flagged:
-
-- **High — `setMousePos` coord bug** at `mclib/userinput.h:419` →
-  `GameOS/gameos/gameos_input.cpp:78`. **Fixed** on `input-fixes`.
-- **Medium — compass multi-pass routing** in `mclib/txmmgr.cpp`
-  (the reviewer flagged a three-way routing inconsistency on
-  `MC2_ISCOMPASS`). **Resolved 2026-04-25 but not via that
-  routing.** Routing was correct; the real bug was an alpha-test
-  fragment discard at `shaders/gos_tex_vertex.frag` killing soft-
-  alpha compass pixels. Landed as `379c8d5` on master.
-  Investigation archived at
-  `devlogs/closed/compass_investigation_2026-04-25.md`.
-- **Medium — editor source gitignored** at `.gitignore:97` while
-  `MC2_Source_Code/Source/Editor/EditorMFC.vcproj:4` exists.
-  **Open** — unignore becomes step 0 when editor work starts on
-  `editor-tier0`.
-- **Low — `.bik` strip via `strstr`** in `code/logistics.cpp` (would
-  truncate on first substring, not just terminal ext). **Fixed** on
-  `master` (terminal-only check via `S_stricmp` of last 4 chars).
-
-### Next concrete moves
-
-1. **Input-fixes stability check.** Only remaining investigation
-   branch with in-flight work. The ClipCursor reinforcement has
-   a known 1-pixel-column residual on one 3-monitor setup; not
-   urgent, likely environmental.
-2. **Input-fixes stability check.** The ClipCursor reinforcement has
-   a known 1-pixel-column residual on one setup; not urgent.
-3. **Wait for ThranduilsRing's next push.** When it lands, start the
-   rebase of non-FMV work onto his `main` per discussion #2.
-4. **Merge `input-fixes` and `compass-fix` to master** when validated
-   (before or after ThranduilsRing's push — doesn't need to be
-   synchronized).
-5. **Editor Tier 0** when the above has stabilized. Plan at
-   `devlogs/mission_editor_tier0_plan.md`.
-
----
-
-## Pending follow-ups
-
-### Clamp cursor to game window on borderless (2026-04-24)
-
-**Resolved 2026-04-24 on `input-fixes` branch** — see Project state
-snapshot above. Implemented as `SDL_SetWindowMouseGrab` at window
-creation, grab re-assertion on focus-gain, plus Win32 `ClipCursor`
-reinforcement with the actual client rect. Minor residual documented.
-
-### Mission editor revival (2026-04-24)
-
-Microsoft shipped the mission editor source with the 2001 shared-source drop.
-Full tree lives at `MC2_Source_Code/Source/Editor/` (134 `.cpp/.h` files,
-untracked locally — reference checkout). `.vcproj` files in that dir target
-VS 2002-2008 and use MFC. Retail shipped a compiled `editores.dll` (resource
-DLL) and an `EditorMFC` application; our `full_game/editores.dll` is that
-retail DLL, `full_game/EDITOR/EDITOR.RTF` is the 542 KB user manual.
-
-No fork currently builds the editor. alariq skipped it because MFC makes it
-Windows-only; ThranduilsRing hasn't touched it.
-
-Community is asking about it. Investigated 2026-04-24:
-
-- `.vcproj` files are Version="8.00" (VS 2005) — VS 2022 `devenv /upgrade`
-  handles this cleanly.
-- **No DirectX in the Editor tree.** Renders through GameOS like the main
-  game; our OpenGL path is already available.
-- Uses the same `.fit`/`.pak`/`.fst` formats via `mclib`, not its own
-  authoring formats.
-- MFC depth: 287 refs across 77 files (out of ~134). MFC is the GUI
-  backbone, so Tier 2 cross-platform port is genuinely months. Modern MFC
-  ships free in VS Community and is backward-compatible, so Tier 0/1 are
-  more tractable than the raw file count suggests.
-
-Effort tiers:
-
-- **Tier 0 — revive as-is on VS 2022 + MFC.** 2-5 days. Windows-only.
-- **Tier 1 — Tier 0 + Win11/x64/high-DPI modernization.** 2-4 weeks.
-- **Tier 2 — port UI to cross-platform** (Qt or Dear ImGui). Months.
-
-**Custom videos work without the editor** — separately verified during the
-same investigation. Video references in mission/campaign `.fit` files are
-`EString` path strings, not a hardcoded enum:
-
-- `logisticsmissioninfo.h:158-160` — `EString videoFileName;` and
-  `EString bigVideoName;` on the MissionGroup struct.
-- `logisticsmissioninfo.cpp:162-168` — load path accepts
-  `PreVideo = "..."` / `VideoOverride = "..."` as free strings.
-- `missionselectionscreen.cpp:240` — path already built with `.mp4`
-  extension.
-
-So a hand-authored test campaign is possible today with zero code changes:
-clone existing `.fit` files, edit the video-field strings to reference
-custom `.mp4` filenames, drop the `.mp4`s into `full_game/data/Movies/`.
-That's the low-cost validation path before committing to editor revival.
-
-### Release installer (Inno Setup) — nearly complete (2026-04-24)
-
-Under `release/` (gitignored). `mc2-mp4-patch.iss` handles wizard, validation,
-file copy, transcode, uninstall. Tested end-to-end with wipe/restore loop.
-
-**Resolved 2026-04-25 — installer now ships `shaders/`.** The payload list was
-missing `full_game\shaders\*`, so a fresh retail install booted without GLSL
-shader sources. `gosRenderMaterial::load()` opens them with plain `fopen`
-relative to CWD (`GameOS/gameos/utils/stream.cpp:78`), bypassing the fastfile
-fallback in `mclib/file.cpp`. In release builds `gosASSERT` compiles out, so the
-null material is stored and kills the process on the first textured draw —
-matching the 7-10 second intro death with `0xC0000005 / RAX=0` at
-`mc2.exe+0x1f78b5`. Confirmed by copying `full_game\shaders\` into
-`F:\Games\MechCommander2\` and rerunning: game boots clean. Installer fix is
-one `[Files]` line plus an `[UninstallDelete]` entry.
-
-Credit: external evaluator flagged the missing `shaders/` in the payload and
-pointed out that the original debug plan (symbolize with `full_game/mc2.pdb`)
-was unreliable — the PDB is from 2025-05-09 while the shipped `mc2.exe` is
-from 2026-04-23, so the symbol names were not trustworthy.
-
-Three small follow-ups remain before public release:
-
-- **Bundle a static ffmpeg.exe** under `release/tools/` (~50 MB gyan.dev
-  essentials build) so the installer doesn't require PATH ffmpeg.
-- **Revert compression to `lzma2/max` + `SolidCompression=yes`** for public
-  release. Currently set to `none` for fast iteration builds.
-- **Fix Inno deprecation warning**: change `ArchitecturesInstallIn64BitMode=x64`
-  to `x64compatible`.
-
-Not blocking for development, but required before shipping.
-
-### Auto-detect display resolution on first launch (2026-04-24)
-
-The shipped `options.cfg` hardcodes `ResolutionX = 1920` / `ResolutionY = 1080`.
-On any monitor that isn't exactly that resolution, the game launches at the
-hardcoded size rather than matching the user's display. Desired behavior: on
-first launch (no valid options.cfg, or a sentinel value), query the current
-primary display resolution via SDL (`SDL_GetCurrentDisplayMode` returns the
-width/height of the active desktop mode) and write those values to options.cfg.
-Subsequent launches read whatever the user last saved — the options menu still
-lets them change it.
-
-Likely touch point: wherever options.cfg is first loaded / initialized
-(search `ResolutionX` in `code/` and `gui/` — a `readIdLong("ResolutionX", ...)`
-path is the natural hook). Write the detected value only when the key is
-missing, so user-set values are preserved.
-
-### Distribution strategy and license anchor (discovered 2026-04-24)
-
-Discovered while building the MP4 FMV release bundle: alariq's fork is **not** a patch
-over retail — it's a full replacement. Retail `.fst` archives differ in both size and
-content from the fork's; retail has no `data/campaign/campaign.fit` at all (confirmed
-by string-searching every retail `.fst`); the fork's data is produced from the separate
-`mc2srcdata` repo per `BUILD-WIN.md` and is not derivable from retail files.
-
-Legal constraint: we do **not** want to publish a GitHub distribution that includes the
-game's data/assets, even though MC2 is abandonware. Pattern to follow: Falcon BMS's
-"bring your own Falcon 4" approach — distribution includes patched binary + our data,
-but requires the user to supply a retail `Mc2Rel.exe` as a license anchor.
-
-**Current state (as of this entry):**
-- `release/Install-Patch.bat` enforces the anchor at install time by refusing to run
-  unless `Mc2Rel.exe` is present in the target directory.
-- `mc2.exe` itself does **not** check for `Mc2Rel.exe` at startup. An attacker can
-  bypass the installer's check by creating an empty file of that name.
-
-**TODO — runtime anchor check in `mc2.exe`:**
-Add an early-init check (likely in `GameOS/gameosmain.cpp` before SDL init) that calls
-`fileExists("Mc2Rel.exe")` and aborts with a MessageBox if missing. ~15-20 lines.
-Makes the anchor harder to strip without actually patching the binary. Not DRM — just
-a formal declaration of the ownership requirement.
-
-**TODO — lean distribution pass:**
-Initial v1 bundle ships the fork's `data/` tree verbatim (~1.9 GB). Most of that is
-loose unpacked files that duplicate content already packed inside `.fst` archives.
-`mclib/file.cpp:246-254` (`File::open`) tries loose first, then falls back to
-`FastFileFind()` in registered fastfiles. So if we strip the loose duplicates and ship
-only the `.fst` archives plus files that aren't packed (at minimum:
-`data/campaign/campaign.fit`), the binary should boot identically from `.fst`. Expected
-size: 400-600 MB instead of 2 GB.
-
-Method: iterative boot-retry. Ship minimum (`.fst`s + obvious non-packed like
-`campaign/`), read `mc2_stdout.log` after each failed launch, add back only what it
-couldn't find, repeat until clean boot. 3-5 cycles probably. Brittle against future
-fork changes but good for one-shot v1 size reduction.
-
-Leaner distribution also reinforces the license-anchor story: smaller the data blob,
-the more the value-add lives in the binary the user already owns (`Mc2Rel.exe` as
-evidence of entitlement to the asset set our patch extends).
-
-### Font rendering quality regression (discovered 2026-04-24)
-
-The current build renders the in-game UI font noticeably worse than retail — hard to
-read at normal resolutions. Root cause surfaced while wiring up the MP4 FMV patch for
-a clean retail install: our build hardcodes `.bmp` + `.glyph` as the font format
-(`GameOS/gameos/gameos_graphics.cpp:2190-2191`, consumed by `gosFont::load`), but
-retail ships `.d3f` + `.tga`. The `full_game/assets/graphics/*.{bmp,glyph}` files that
-make the game boot are a pre-converted set inherited from an upstream fork; they look
-worse than the retail `.tga` glyph atlases sitting alongside them.
-
-**Investigation starting points:**
-- `GameOS/gameos/gos_font.cpp:10-40` — `gos_load_glyphs` reads the `.glyph` sidecar
-  (num_glyphs, start_glyph, max_advance, font_ascent, font_line_skip, per-glyph
-  metrics). That's the metrics side.
-- `gosFont::load` at `gameos_graphics.cpp:2185` — pairs the `.glyph` metrics with a
-  `.bmp` atlas loaded via `gosTexture`.
-- Retail `.tga` + `.d3f` pair lives untouched in every retail install
-  (`assets/graphics/arial8.tga`, `arial8.d3f`, etc.). The `.d3f` is the original
-  bitmap-font container; see `MC2_Source_Code/Source/GameOS/include/Font3D.hpp` for
-  the original structure.
-
-**Likely fix (not verified):** write a small one-shot tool that reads a retail
-`.tga`+`.d3f` pair and emits a matching `.bmp`+`.glyph` pair preserving the retail
-pixel data and metrics. That should give retail-identical font quality against the
-current binary without touching engine code. ~50-100 lines of C++ leaning on the
-existing gosTexture code.
-
-Alternative: patch the engine to load `.d3f`+`.tga` directly and skip the intermediate
-format. More work, and risks regressing whatever motivated the original conversion.
-
-### Upstream PRs awaiting alariq (as of 2026-04-24)
-
-Two PRs open on `alariq/mc2` from our fork, both stalled waiting on the maintainer:
-
-- **[#23 UI scaling](https://github.com/alariq/mc2/pull/23)** — opened 2025-04-04. Three
-  rounds of review; our last update 2025-09-11 ("Implemented your comments @alariq"); no
-  response since. Mergeable status is `UNKNOWN` on GitHub, likely a stale conflict.
-- **[#24 Windows build improvements](https://github.com/alariq/mc2/pull/24)** — opened
-  2025-07-15. Only copilot review so far; no alariq activity.
-
-alariq pushed 4 commits to master on 2026-04-23 (`8dd96f8`, `414cf38`, `9740e68`,
-`53c5484`) but did not act on either PR. None of his changes overlap with our open PRs
-or the in-flight `fmv-mp4-support` branch.
-
-Once the MP4 FMV patch ships, **rebase both PR branches onto current `upstream/master`
-and force-push** to recompute mergeability and surface them in his inbox as "updated".
-Only then add a light ping comment on #23 anchoring off the existing conversation.
-Don't ping #24 cold — no prior conversation to anchor, reads pushy.
+- [`alariq-pr-waits.md`](devlogs/followups/alariq-pr-waits.md) —
+  per-PR status + outreach history for all five open upstream PRs.
+- [`auto-detect-resolution.md`](devlogs/followups/auto-detect-resolution.md) —
+  small task: query `SDL_GetCurrentDisplayMode` on first launch to
+  replace the hardcoded 1920×1080 in `options.cfg`.
+- [`distribution-license-anchor.md`](devlogs/followups/distribution-license-anchor.md) —
+  runtime `Mc2Rel.exe` check in `mc2.exe` + lean data-bundle pass
+  (1.9 GB → 400-600 MB) before public release.
+- [`font-rendering-regression.md`](devlogs/followups/font-rendering-regression.md) —
+  UI font looks worse than retail; upstream `.tga`/`.d3f` → `.bmp`/`.glyph`
+  conversion tool likely fix.
+- [`mission-editor-tier0.md`](devlogs/followups/mission-editor-tier0.md) —
+  revive 2001 mission editor on VS 2022 + MFC. Tier 0 = 2-5 days.
+  Empty `editor-tier0` branch exists for when work starts.
+- [`release-installer.md`](devlogs/followups/release-installer.md) —
+  Inno Setup installer; three polish items before public release
+  (bundle ffmpeg, compression, x64compatible).
