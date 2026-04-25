@@ -95,3 +95,6 @@ test_ingame_cinematics.txt
 # Local working scratch
 .quibbler/
 MC2_Source_Code/
+agent_handshake.py
+devlogs/RESUME_2026-04-25.md
+media/
