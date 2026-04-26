@@ -1,19 +1,28 @@
-# Fonts — port `.d3f` loader
+# Fonts — port `.d3f` loader (CLOSED)
 
-**Started:** 2026-04-25. **Status:** loader landed and rendering retail
-fonts in production across Main Menu, Mission Selection, Mission
-Briefing, Mech Bay, Pilot Ready, in-mission HUD. Vertical metrics
-solved by ASCII-restricted alpha-scan calibration + `.glyph` sidecar
-bridge for `font_line_skip_` and `max_advance_`. Centered button
-widgets rewired to `gos_TextVisualBounds()` (per-glyph ink bounds,
-runtime-only on `gosGlyphInfo`). Newline-glyph rendering guard added.
-Renderer-contract bug found and fixed during review.
+**Started:** 2026-04-25. **Closed:** 2026-04-26. **Status:** loader
+landed and rendering retail fonts in production across Main Menu,
+Mission Selection, Mission Briefing, Mech Bay, Pilot Ready,
+in-mission HUD. Vertical metrics solved by ASCII-restricted
+alpha-scan calibration + `.glyph` sidecar bridge for
+`font_line_skip_` and `max_advance_`. Centered button widgets
+rewired to `gos_TextVisualBounds()` (per-glyph ink bounds,
+runtime-only on `gosGlyphInfo`). Newline-glyph rendering guard
+added. Renderer-contract bug found and fixed during review. Residual
+`+1` caller bias at rewired centering sites dropped after
+verification on commit `a9e7b46`.
 
-Known residuals (tracked separately): residual `+1` caller bias at
-rewired centering sites, top-aligned screen headers (`MECH BAY` /
-`MISSION SELECTION` etc.) untouched by the centering rewire,
-stroke-weight upscale artifact at 2×+ display scaling, mech-slot
-label width spillage from now-visible lowercase glyphs.
+Final commits on `fonts` branch:
+- `0a1ed6b` — D3F loader + ASCII-restricted calibration + sidecar
+- `3a0bb12` — visual-bounds API + 3 centering rewires
+- `a9e7b46` — drop residual +1 bias
+
+Remaining font work tracked in
+[`devlogs/followups/font-tweaks-residual.md`](../followups/font-tweaks-residual.md):
+top-aligned screen headers sit too high, stroke-weight upscale
+artifact (deferred), mech-slot label width spillage (UI layout work
+in `mcl_gn_deploymentteams.fit`), other in-game fonts may need
+tweaking once they get attention.
 
 Promoted from `devlogs/followups/font-rendering-regression.md` (since
 deleted).

@@ -182,7 +182,6 @@ not on a calendar.
 Files in `devlogs/` root are active work. Move to `devlogs/closed/`
 with a resolution note when done.
 
-- [`fonts_d3f_loader_2026-04-25.md`](devlogs/fonts_d3f_loader_2026-04-25.md)
 - [`briefing_map_black_textures_2026-04-25.md`](devlogs/briefing_map_black_textures_2026-04-25.md)
 - [`mission_select_stray_lines_2026-04-25.md`](devlogs/mission_select_stray_lines_2026-04-25.md)
 
@@ -197,6 +196,9 @@ delete the follow-up file.
 - [`auto-detect-resolution.md`](devlogs/followups/auto-detect-resolution.md) —
   query `SDL_GetCurrentDisplayMode` on first launch to replace the
   hardcoded 1920×1080 in `options.cfg`.
+- [`font-tweaks-residual.md`](devlogs/followups/font-tweaks-residual.md) —
+  top-aligned screen headers sit too high; other in-game fonts may
+  need eyeballing. Spawned when the D3F loader work closed.
 - [`distribution-license-anchor.md`](devlogs/followups/distribution-license-anchor.md) —
   installer check is the full model (no runtime DRM); lean data-bundle
   pass (1.9 GB → 400-600 MB) before public release.
