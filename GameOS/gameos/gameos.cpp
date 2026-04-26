@@ -222,11 +222,6 @@ void* __stdcall gos_Malloc(size_t bytes, HGOSHEAP Heap/* = 0*/)
         heap->BytesAllocated += bytes;
     }
 
-    // Log a warning for large allocations
-    if (bytes > 1024 * 1024) {
-        fprintf(stderr, "Warning: Large allocation of %zu bytes\n", bytes);
-    }
-
     // Perform the actual allocation
     return malloc(bytes);
 }

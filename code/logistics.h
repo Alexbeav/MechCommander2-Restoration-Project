@@ -15,7 +15,7 @@
 #include"mclib.h"
 #endif
 
-#ifndef MC2movie_H
+#ifndef MP4PLAYER_H
 #include"mp4player.h"
 #endif
 

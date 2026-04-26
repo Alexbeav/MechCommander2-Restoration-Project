@@ -558,9 +558,14 @@ bool ForceGroupBar::setPilotVideo( const char* pVideo, MechWarrior* pPilot )
 
 bool ForceGroupBar::isPlayingVideo()
 {
+	// Reflect actual playback state, not just pointer presence — the
+	// player may still be allocated for a tick after natural EOF or
+	// stop() before MechIcon::update() prunes it. A non-null but
+	// stopped bMovie was previously enough to permanently block the
+	// next pilot ack from starting.
 	for (int i = 0; i < iconCount; i++)
 	{
-		if (icons[i] && icons[i]->bMovie)
+		if (icons[i] && icons[i]->bMovie && icons[i]->bMovie->isPlaying())
 			return true;
 	}
 	return false;

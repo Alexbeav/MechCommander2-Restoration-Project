@@ -10,7 +10,7 @@
 #include <atomic>
 #include <SDL2/SDL.h>
 #include <GL/glew.h>
-#include <windows.h>
+#include "platform_windows.h"
 
 extern "C" {
 #include <libavcodec/avcodec.h>

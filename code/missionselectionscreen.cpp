@@ -15,7 +15,6 @@ MissionSelectionScreen.cpp			: Implementation of the MissionSelectionScreen comp
 #include"mc2movie.h"
 #include"gamesound.h"
 #include <SDL2/SDL.h>
-#include <iostream>  // Add this for std::cerr
 
 #define VIDEO_RECT 7
 #define MAP_RECT 3
@@ -232,25 +231,20 @@ void MissionSelectionScreen::begin()
 
 	
 	str = LogisticsData::instance->getCurrentVideoFileName();
-	std::cout << "[MissionSelectionScreen] Current video filename: " << (str ? str : "NULL") << "\n";
 	if ( str && strlen( str ) )
 	{
 		FullPathFileName movieName;
 		//videoName.init( moviePath, str, ".bik" );
 		movieName.init( moviePath, str, ".mp4" );
-		std::cout << "[MissionSelectionScreen] Full movie path: " << (const char*)movieName << "\n";
 
 		if (fileExists(movieName) || fileExistsOnCD(movieName))
 		{
-			std::cout << "[MissionSelectionScreen] Video file found, creating movie\n";
 			RECT movieRect;
 			movieRect.left = rects[VIDEO_RECT].left()+1;
 			movieRect.top = rects[VIDEO_RECT].top()+1;
 			movieRect.right = movieRect.left + rects[VIDEO_RECT].width()-2;
 			movieRect.bottom = movieRect.top + rects[VIDEO_RECT].height()-2;
-			std::cout << "[MissionSelectionScreen] Movie rect: " << movieRect.left << "," << movieRect.top 
-			          << " " << (movieRect.right - movieRect.left) << "x" << (movieRect.bottom - movieRect.top) << "\n";
-		
+
 			//If there is one already here, cause we loaded a savegame or something,
 			// Toss it to prevent leaking from the system Heap!
 			if (bMovie)

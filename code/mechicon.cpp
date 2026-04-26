@@ -645,6 +645,17 @@ void MechIcon::update()
 	if (bMovie)
 	{
 		bMovie->update();
+		// Defensive cleanup: if the player ended on its own (EOF on a
+		// non-looping clip, or an internal error), drop it now so
+		// ForceGroupBar::isPlayingVideo() reports correctly and the
+		// next pilot acknowledgment can start. Looping pilot acks
+		// won't trip this; explicit setPilotVideo(NULL) tear-down
+		// remains the primary path.
+		if (!bMovie->isPlaying())
+		{
+			delete bMovie;
+			bMovie = NULL;
+		}
 	}
 
 	if (unit->body[MECH_BODY_LOCATION_LTORSO].damageState == IS_DAMAGE_DESTROYED)
