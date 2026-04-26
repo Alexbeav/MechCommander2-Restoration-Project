@@ -204,6 +204,10 @@ delete the follow-up file.
   pass (1.9 GB → 400-600 MB) before public release.
 - [`mission-editor-tier0.md`](devlogs/followups/mission-editor-tier0.md) —
   revive 2001 mission editor on VS 2022 + MFC. Tier 0 = 2-5 days.
+- [`night-mission-rendering.md`](devlogs/followups/night-mission-rendering.md) —
+  edge fog missing (black tiles at screen edges) and mech spotlights
+  cast no ground illumination on at least one night mission.
+  Pre-existing, not a regression.
 - [`release-installer.md`](devlogs/followups/release-installer.md) —
   Inno Setup installer; three polish items before public release
   (bundle ffmpeg, compression, x64compatible).
