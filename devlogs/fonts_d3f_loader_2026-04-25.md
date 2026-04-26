@@ -4,14 +4,16 @@
 fonts in production across Main Menu, Mission Selection, Mission
 Briefing, Mech Bay, Pilot Ready, in-mission HUD. Vertical metrics
 solved by ASCII-restricted alpha-scan calibration + `.glyph` sidecar
-bridge for `font_line_skip_` and `max_advance_`. Newline-glyph
-rendering guard added. Renderer-contract bug found and fixed during
-review.
+bridge for `font_line_skip_` and `max_advance_`. Centered button
+widgets rewired to `gos_TextVisualBounds()` (per-glyph ink bounds,
+runtime-only on `gosGlyphInfo`). Newline-glyph rendering guard added.
+Renderer-contract bug found and fixed during review.
 
-Known residuals (tracked separately): button vertical centering bias
-(`gos_TextStringLength()` returns line-skip not visual-bbox height),
-stroke-weight upscale artifact at 2×+ display scaling, mech-slot label
-width spillage from now-visible lowercase glyphs.
+Known residuals (tracked separately): residual `+1` caller bias at
+rewired centering sites, top-aligned screen headers (`MECH BAY` /
+`MISSION SELECTION` etc.) untouched by the centering rewire,
+stroke-weight upscale artifact at 2×+ display scaling, mech-slot
+label width spillage from now-visible lowercase glyphs.
 
 Promoted from `devlogs/followups/font-rendering-regression.md` (since
 deleted).
@@ -308,15 +310,28 @@ Useful for community fonts without D3F tooling.
 
 - `GameOS/gameos/gos_font.cpp` — `gos_load_d3f` (parse v1/v4 + atlas
   extract + ASCII-restricted alpha-scan calibration in
-  `calibrate_vertical`). `gos_load_glyphs` adds pre-fold step for
-  legacy `.glyph` compatibility under the new renderer contract.
-- `GameOS/gameos/gos_font.h` — declares `gos_load_d3f` + `gosD3FAtlas`.
+  `calibrate_vertical`, plus per-glyph ink-bounds population in a
+  second pass over all 256 slots). `gos_load_glyphs` adds pre-fold
+  step for legacy `.glyph` compatibility under the new renderer
+  contract.
+- `GameOS/gameos/gos_font.h` — declares `gos_load_d3f` + `gosD3FAtlas`;
+  `gosGlyphInfo` carries runtime-only `ink_top_/ink_bot_/ink_valid_`
+  arrays for the visual-bounds API.
 - `GameOS/gameos/gameos_graphics.cpp` — `drawText` per-character loop
   skips control chars (`c < 0x20`); renderer-contract decouple
   (`gm.u`/`gm.v` used directly without `+ char_off_x/y`); text-draw
   render-state save/restore (Texture, Filter, TextureAddress) with
   forced clamp; `gosFont::load` with d3f-first probe and `.glyph`
-  sidecar bridge for `font_line_skip_` + `max_advance_`.
+  sidecar bridge for `font_line_skip_` + `max_advance_`;
+  `gos_TextVisualBounds()` + `gosFont::getGlyphInfo()` accessor;
+  destructor frees ink arrays.
+- `GameOS/include/gameos.hpp` — declares `gos_TextVisualBounds()`.
+- `gui/abutton.cpp:176` — `aButton::render` rewired to
+  `gos_TextVisualBounds()` for vertical centering.
+- `code/controlgui.cpp:1511` — `ControlButton::render` rewired
+  similarly.
+- `gui/alistbox.cpp:1306` — `aTextListItem::render` centering branch
+  rewired (top-aligned branch left alone).
 
 ## Scope deliberately out
 
@@ -346,23 +361,97 @@ Useful for community fonts without D3F tooling.
 - [x] ASCII-restricted alpha-scan calibration
 - [x] Newline rendering guard
 - [x] `.glyph` sidecar bridge for `font_line_skip_` + `max_advance_`
+- [x] Per-glyph ink bounds + `gos_TextVisualBounds()` API
+- [x] Centered button widgets rewired (aButton, ControlButton,
+      aTextListItem centering branch)
 - [x] Visual validation across Main Menu, Mission Selection, Mission
       Briefing, Mech Bay, Pilot Ready, in-mission HUD
 
+## Visual centering — `gos_TextVisualBounds()` API (commit 2)
+
+`gos_TextStringLength()` returns `lines * font_line_skip_` for height,
+which overstates the visible glyph-bbox by the leading included in
+line_skip. Centered widgets (`aButton::render`, `ControlButton::render`,
+`aTextListItem::render` centering branch) compute
+`(rect.top + rect.bot)/2 − height/2` — biasing ALL CAPS text low by
+`(line_skip − cap_height)/2 ≈ 2-4 px`. Plus the per-glyph quad
+includes empty rows in the descender slot for caps-only strings, so
+returning a smaller "visual height" alone wouldn't fix it (would just
+shift the quad top down).
+
+### Storage
+
+`gosGlyphInfo` got three runtime-only pointer fields (NOT in
+`gosGlyphMetrics` — would break the legacy `.glyph` blob-read at
+`gos_load_glyphs`):
+
+- `int8_t* ink_top_` — first inked atlas row, signed offset relative
+  to rendered quad top. Negative for extended glyphs that sit above
+  the ASCII-trimmed band.
+- `int8_t* ink_bot_` — last inked atlas row, same reference frame.
+- `uint8_t* ink_valid_` — separate validity flag (can't sentinel on
+  `top==bot==0` since a real glyph may legitimately span row 0).
+
+Populated in `calibrate_vertical` by a second pass over all 256
+glyphs (extended-ASCII glyphs need bounds too, even though they
+don't drive the band metrics). Allocated only on D3F path; legacy
+`.glyph` fonts leave them NULL. Destructor frees alongside `glyphs_`.
+
+### API
+
+```cpp
+void __stdcall gos_TextVisualBounds(
+    DWORD* Width, int* Top, int* Bottom,
+    const char* Message, ...);
+```
+
+Width matches `gos_TextStringLength()` (max line width across `\n`).
+Top/Bottom signed. Multi-line:
+`Bottom = (lines − 1) * line_skip + last_line_bot`. Whitespace-only
+returns `(0, 0)`. NULL ink arrays (legacy fonts) fall back to
+`Top=0, Bottom=lines*line_skip` so centering math degrades to the
+existing line-skip behavior — no improvement, no regression.
+
+### Caller rewires
+
+- `gui/abutton.cpp:176` — `aButton::render` button labels. Existing
+  `+1` bias preserved.
+- `code/controlgui.cpp:1511` — `ControlButton::render` HUD buttons.
+  Existing `+1` bias preserved. Added explicit
+  `gos_TextSetAttributes` so the bounds query sees the same font as
+  the subsequent `aFont::render`.
+- `gui/alistbox.cpp:1306` — `aTextListItem::render` centering branch
+  ONLY. The `forceToTop` / top-aligned else branch at `:1309`
+  untouched. No `+1` (matches original float-math style).
+
+### Untouched
+
+`gos_TextStringLength()`, `aFont::height()` (both forms), and all
+~14 other `gos_TextStringLength` callers (afont word-wrap, controlgui
+help text, debugging overlay, float-help, width-only paths) keep
+line-skip semantics. ~12 widget-stride consumers via cached
+`aFont::height()` (chatwindow, alistbox sizing, pilotreview,
+pilotready, asystem) untouched.
+
 ### Known residuals (next passes)
 
-- **Button vertical centering bias.** Centered button text
-  (Mech Bay ADD/REMOVE/BUY/SELL/MODIFY 'MECH, NEXT/BACK on Mission
-  Selection / Briefing, Pilot Ready ADD PILOT/REMOVE PILOT/LAUNCH,
-  MAIN MENU header) sits a few px low because the centering math
-  uses `gos_TextStringLength()` → `font_line_skip_`, which overstates
-  the visible glyph-bbox height the centered label actually needs.
-  Fix lives in `gos_TextStringLength()` or a new visual-height API
-  wired through the button widget — separate commit.
+- **`+1` caller bias may now be net-low.** The `+1` preserved in
+  `aButton`/`ControlButton` was a compensation for the original
+  line-skip-based centering bug. Now that visual-bounds math centers
+  on actual ink, the `+1` shifts everything 1 px below true center.
+  Visible across most centered labels in the 2026-04-26 verification
+  set. Drop the `+1` (separately, after re-verifying every rewired
+  site looks correct without it).
+- **Top-aligned screen headers sit too high.** `MECH BAY`,
+  `MISSION SELECTION`, `MISSION BRIEFING`, `PILOT READY AREA`,
+  `LOAD GAME`, etc. — top-left corner labels — render via a
+  top-aligned path (not aButton/ControlButton/aTextListItem
+  centering), so the visual-bounds rewire doesn't reach them. Need
+  to identify the render path and add a few px of top padding.
 - **Stroke-weight upscale artifact.** D3F atlases are pure 1-bit
   (alpha is 0 or 255, no AA). At 2×+ display upscale with nearest
-  filtering, every 1-px stroke becomes 2-3 display pixels, reading as
-  a heavier weight than retail's near-1:1 render. Confirmed by
+  filtering, every 1-px stroke becomes 2-3 display pixels, reading
+  as a heavier weight than retail's near-1:1 render. Confirmed by
   inspecting `arialnarrow8.d3f` (header `weight=400`, regular)
   against the legacy `.bmp` atlas (also 1-bit, same character pixel
   density). Not a loader bug.
