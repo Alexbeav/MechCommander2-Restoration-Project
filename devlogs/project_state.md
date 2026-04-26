@@ -3,9 +3,9 @@
 Living snapshot of current branches, external collaboration, and open
 work. Refreshed when something material changes — not on a calendar.
 
-Last update: 2026-04-25 eve (positioning locked publicly in discussion
-#2: vanilla+ with cross-OS reach vs. Thranduil's Windows-first
-remaster; 3 of Thranduil's base-game fixes cherry-picked to master).
+Last update: 2026-04-26 eve (D3F font loader landed end-to-end:
+clean PR up to alariq, master ff-merged, FMV/restoration review
+findings addressed in same session).
 
 ## Positioning — "MC2 vanilla plus, cross-OS"
 
@@ -18,7 +18,9 @@ visual fidelity, Windows-first, ships upscaled data).
 
 Focus is own-fork work on the vanilla experience:
 
-- Font rendering quality (current fork regressed vs retail)
+- Font rendering quality (D3F loader + visual-bounds API landed
+  2026-04-26; menu fonts ✓; tracked residuals at issue #1 +
+  `devlogs/followups/font-tweaks-residual.md`)
 - UI resizing / repositioning for modern resolutions
 - Pre-mission briefing map bug fixes
 - Mission editor revival so the community can author custom missions
@@ -36,15 +38,18 @@ different users.
 
 ## Active branches
 
-- `master` — shipping baseline. Has the FMV playback fixes squashed from
-  the retired `fmv-mp4-support` branch (isPlaying gate, `.bik` strip,
-  full-screen rect), campaign-dialog dup fix cherry-picked from the
-  upstream PR, modding guide (`CUSTOM-CAMPAIGNS.md`), editor Tier 0 plan
-  under `devlogs/`, README rewrite, compass fix (`379c8d5`), and three
-  base-game crash fixes cherry-picked from Thranduil's v0.2 with `-x`
-  attribution and pushed to origin: `eb7afb2` (Turret teamId guard),
-  `bcdbb4b` (ABL code-segment sentinel byte), `4c5de32` (GlobalMap
-  pathExistsTable zero-init).
+- `master` — shipping baseline. As of 2026-04-26 includes everything
+  through the prior baseline plus: D3F font loader + ASCII-restricted
+  calibration + `.glyph` sidecar bridge (`0a1ed6b`), visual-bounds
+  centering API + 3 widget rewires (`3a0bb12`), `+1` bias drop
+  (`a9e7b46`), devlog closure + followup spawn (`4202448`), PR-review
+  fixes for the upstream PR (`2acd680`: ink-array leak, GL_UNPACK
+  alignment save/restore, gos_GetTextureGLId handle validation,
+  visual-bounds leading-newline bug, legacy fallback off-by-one,
+  gos_load_glyphs EOF guard), FMV/restoration review fixes
+  (`27832e9`: Linux portability, pilot-video defensive cleanup,
+  instrumentation cleanup, header guard rename), and night-mission
+  rendering followup spawn (`8528ce2`).
 - `input-fixes` — 4 commits ahead of master. `gos_SetMousePosition`
   coord fix, SDL `SDL_SetWindowMouseGrab` at window creation, grab re-
   assertion on focus events + proper `SDL_WINDOWEVENT` dispatch, and
@@ -57,6 +62,15 @@ different users.
   starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
   (currently in `.gitignore`). Plan details in
   `devlogs/followups/mission-editor-tier0.md`.
+- `fonts-upstream` — lives only as the head branch of upstream PR
+  alariq/mc2#32 (D3F loader + visual-bounds API + `+1` drop +
+  PR-review fixes, cherry-picked clean onto `upstream/master`).
+  Delete after alariq merges or closes the PR.
+
+Retired (ff-merged into master):
+
+- `fonts` — 2026-04-26. All commits now on master via fast-forward.
+- `fmv-review-fixes` — 2026-04-26. All commits now on master.
 
 Retired (squash-merged into master):
 
@@ -134,6 +148,7 @@ Open on `alariq/mc2`:
 | [#26](https://github.com/alariq/mc2/pull/26) | FMV pipeline | Closes #22. |
 | [#28](https://github.com/alariq/mc2/pull/28) | Campaign-dialog dup fix | Closes #27, easy yes. |
 | [#29](https://github.com/alariq/mc2/pull/29) | Compass alpha-test fix | Opened 2026-04-25, one-line fix. |
+| [#32](https://github.com/alariq/mc2/pull/32) | D3F font loader + visual-bounds API | Opened 2026-04-26 (replaces accidentally-bloated #31, which was closed). Head branch `fonts-upstream`. 7 files, +684/-23. Copilot review addressed. |
 
 Issues: [#22](https://github.com/alariq/mc2/issues/22) (FMVs missing,
 user-opened, closed by #26) and
@@ -157,22 +172,30 @@ Per-PR status and outreach history in
 
 ## Next concrete moves
 
-1. **Fonts** (in flight). New `lesson_glyph_uv_renderer_contract.md`
-   memory landed during the D3F port; finish the renderer-contract
-   work and validate.
-2. **Cherry-pick `9751e86` (Thranduil's HUD-inverse mouse transform
+1. **Pick up one of the active devlogs in `devlogs/` root** — both
+   pre-existing investigations parked when fonts took priority:
+   - `briefing_map_black_textures_2026-04-25.md`
+   - `mission_select_stray_lines_2026-04-25.md`
+2. **Font residuals** (issue #1). Top-aligned screen headers
+   (`MECH BAY`, `MISSION SELECTION`, etc.) sit a few px too high —
+   different render path than the centering rewires we just landed.
+   Smaller-scope continuation while font context is fresh.
+3. **Cherry-pick `9751e86` (Thranduil's HUD-inverse mouse transform
    fix) onto `input-fixes`** — overlaps with our cursor work; needs a
    real diff before applying.
-3. **Verify `AUDIO_U8` fix in `GameOS/gameos/gameos_sound.cpp:297`** —
+4. **Verify `AUDIO_U8` fix in `GameOS/gameos/gameos_sound.cpp:297`** —
    action item from imported memory; if missing, port the one-liner.
-4. **Merge `input-fixes` to master** when validated (residual
+5. **Merge `input-fixes` to master** when validated (residual
    1-pixel-column on 3-monitor likely environmental).
-5. **Editor Tier 0** when the above has stabilized. Plan at
+6. **Editor Tier 0** when the above has stabilized. Plan at
    `devlogs/followups/mission-editor-tier0.md`.
-6. **Adopt Thranduil's ASan harness pattern** when there's a quiet
+7. **Adopt Thranduil's ASan harness pattern** when there's a quiet
    slot — he's running it; we're not.
+8. **Night-mission rendering** (followup
+   `night-mission-rendering.md`). Bigger investigation; deferred
+   until lighting pipeline gets attention.
 
 Watching (no action required unless they engage):
 
+- alariq's response on the open PRs (#23/#24/#26/#28/#29/#32).
 - Thranduil's response on discussion #2.
-- alariq's response on the open PRs (#23/#24/#26/#28/#29).
