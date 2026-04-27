@@ -6,7 +6,9 @@ work. Refreshed when something material changes — not on a calendar.
 Last update: 2026-04-27 (alariq closed his fork as an upstream
 channel — stated 0% LLM-code policy and considers his project
 "finished"; all six of our open PRs there closed; positioning
-revised to "stay independent, cherry-pick/share opportunistically").
+revised to "stay independent, cherry-pick/share opportunistically".
+Same day: input-fixes branch ff-merged to master and pruned;
+working tree is now master-only).
 
 ## Positioning — "MC2 vanilla plus, cross-OS"
 
@@ -51,24 +53,31 @@ Focus is own-fork work on the vanilla experience:
   (`27832e9`: Linux portability, pilot-video defensive cleanup,
   instrumentation cleanup, header guard rename), and night-mission
   rendering followup spawn (`8528ce2`).
-- `input-fixes` — 4 commits ahead of master. `gos_SetMousePosition`
-  coord fix, SDL `SDL_SetWindowMouseGrab` at window creation, grab re-
-  assertion on focus events + proper `SDL_WINDOWEVENT` dispatch, and
-  Win32 `ClipCursor` reinforcement. Tested. **Known minor residual:**
-  on one 3-monitor setup the cursor can escape by ~1 column of pixels
-  to the adjacent monitor without losing focus; likely environmental
-  (another process calling `ClipCursor`, DPI-seam quirk, or monitor-
-  alignment utility) rather than a code-side miss.
-- `editor-tier0` — empty branch off master, ready for when editor work
-  starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
-  (currently in `.gitignore`). Plan details in
-  `devlogs/followups/mission-editor-tier0.md`.
+No active feature branches — all work flows directly into master.
+Editor work is deferred to adopt Methuselas's branch when he pushes it.
+
 Retired (ff-merged into master):
 
 - `fonts` — 2026-04-26. All commits now on master via fast-forward.
 - `fmv-review-fixes` — 2026-04-26. All commits now on master.
 - `fonts-upstream` — 2026-04-27. Existed only to host upstream PR
-  alariq/mc2#32; PR closed, branch can be deleted.
+  alariq/mc2#32; PR closed, branch deleted.
+- `input-fixes` — 2026-04-27. Rebased onto master and ff-merged
+  (`16fdd7a`, `729f9a8`, `803a64f`, `0f8dcaf`). Mouse grab full stack
+  on master: `gos_SetMousePosition` coord fix, `SDL_SetWindowMouseGrab`
+  at window creation, dead-event-dispatch fix in `process_events()`
+  (top-level `SDL_WINDOWEVENT_RESIZED`/`FOCUS_LOST` cases were matching
+  `event.type` when those codes live in `event.window.event`), and
+  Win32 `ClipCursor` reinforcement driven by focus/move/resize events.
+  Residual: 1-pixel-column escape on at least one 3-monitor setup,
+  cosmetic only — tracked at
+  `devlogs/followups/input-multimonitor-1px-residual.md`.
+
+Pruned (work redundant or content already on master via different commits):
+
+- `compass-alpha-test-fix`, `fix-campaign-dialog-duplicates`,
+  `fmv-ffmpeg-pipeline`, `ui-scaling`, `win-build-improvements`,
+  `editor-tier0` — all deleted local + origin 2026-04-27.
 
 Retired (squash-merged into master):
 
@@ -175,18 +184,20 @@ Closed PRs (work landed on our master):
 moved to `devlogs/closed/` as a historical artifact next time we
 touch followups.
 
-## External reviewer findings (2026-04-24)
+## External reviewer findings (2026-04-24, all resolved)
 
 - **High — `setMousePos` coord bug** at `mclib/userinput.h:419` →
-  `GameOS/gameos/gameos_input.cpp:78`. **Fixed** on `input-fixes`.
+  `GameOS/gameos/gameos_input.cpp:78`. Fixed on master 2026-04-27 (in
+  `16fdd7a`).
 - **Medium — compass multi-pass routing** in `mclib/txmmgr.cpp`.
-  **Resolved 2026-04-25 but not via that routing.** Routing was correct;
-  real bug was alpha-test fragment discard. Landed as `379c8d5`.
+  Resolved 2026-04-25 but not via that routing — real bug was alpha-
+  test fragment discard. Landed as `379c8d5`.
 - **Medium — editor source gitignored** at `.gitignore:97` while
-  `MC2_Source_Code/Source/Editor/EditorMFC.vcproj:4` exists. **Open** —
-  step 0 of editor-tier0.
-- **Low — `.bik` strip via `strstr`** in `code/logistics.cpp`. **Fixed**
-  on `master`.
+  `MC2_Source_Code/Source/Editor/EditorMFC.vcproj:4` exists. Deferred
+  pending Methuselas's editor branch (collaboration replaces in-house
+  Tier 0).
+- **Low — `.bik` strip via `strstr`** in `code/logistics.cpp`. Fixed
+  on master.
 
 ## Next concrete moves
 
@@ -196,20 +207,16 @@ touch followups.
    - `mission_select_stray_lines_2026-04-25.md`
 2. **Font residuals** (issue #1). Top-aligned screen headers
    (`MECH BAY`, `MISSION SELECTION`, etc.) sit a few px too high —
-   different render path than the centering rewires we just landed.
-   Smaller-scope continuation while font context is fresh.
+   different render path than the centering rewires landed. Smaller-
+   scope continuation while font context is fresh.
 3. **Cherry-pick `9751e86` (Thranduil's HUD-inverse mouse transform
-   fix) onto `input-fixes`** — overlaps with our cursor work; needs a
-   real diff before applying.
+   fix) onto master** — overlaps with the now-landed cursor work;
+   needs a real diff before applying.
 4. **Verify `AUDIO_U8` fix in `GameOS/gameos/gameos_sound.cpp:297`** —
    action item from imported memory; if missing, port the one-liner.
-5. **Merge `input-fixes` to master** when validated (residual
-   1-pixel-column on 3-monitor likely environmental).
-6. **Editor Tier 0** when the above has stabilized. Plan at
-   `devlogs/followups/mission-editor-tier0.md`.
-7. **Adopt Thranduil's ASan harness pattern** when there's a quiet
+5. **Adopt Thranduil's ASan harness pattern** when there's a quiet
    slot — he's running it; we're not.
-8. **Night-mission rendering** (followup
+6. **Night-mission rendering** (followup
    `night-mission-rendering.md`). Bigger investigation; deferred
    until lighting pipeline gets attention.
 
