@@ -3,9 +3,10 @@
 Living snapshot of current branches, external collaboration, and open
 work. Refreshed when something material changes — not on a calendar.
 
-Last update: 2026-04-26 eve (D3F font loader landed end-to-end:
-clean PR up to alariq, master ff-merged, FMV/restoration review
-findings addressed in same session).
+Last update: 2026-04-27 (alariq closed his fork as an upstream
+channel — stated 0% LLM-code policy and considers his project
+"finished"; all six of our open PRs there closed; positioning
+revised to "stay independent, cherry-pick/share opportunistically").
 
 ## Positioning — "MC2 vanilla plus, cross-OS"
 
@@ -16,6 +17,11 @@ life fixes and compatibility work on top. Not a total conversion, not
 a reimagining, not a remaster (that's ThranduilsRing's direction —
 visual fidelity, Windows-first, ships upscaled data).
 
+**Our `master` is the project's authoritative branch.** We are not
+downstream of any other fork. Bug fixes flow opportunistically with
+peer forks (ThranduilsRing actively, Methuselas pending), but no
+tree-convergence relationship and no outbound PR queue.
+
 Focus is own-fork work on the vanilla experience:
 
 - Font rendering quality (D3F loader + visual-bounds API landed
@@ -24,17 +30,12 @@ Focus is own-fork work on the vanilla experience:
 - UI resizing / repositioning for modern resolutions
 - Pre-mission briefing map bug fixes
 - Mission editor revival so the community can author custom missions
+  (deferred — adopting Methuselas's work when he publishes it)
 - Crash / stability fixes (FMV pipeline done; more as they surface)
 - Installer that patches over a legal retail copy (no asset
   redistribution; license anchor via `Mc2Rel.exe`)
 - Cross-OS compat work as it surfaces (Linux already works via
   alariq's port; Mac is future via MoltenVK / RHI)
-
-External collaboration is **bidirectional but bounded**: bug fixes
-flow both ways with ThranduilsRing without either fork having to
-adopt the other's scope. Outbound-only to alariq for upstream PRs.
-No tree convergence; both projects coexist as different surfaces for
-different users.
 
 ## Active branches
 
@@ -62,15 +63,12 @@ different users.
   starts. Step 0 of that work is unignore + commit `MC2_Source_Code/`
   (currently in `.gitignore`). Plan details in
   `devlogs/followups/mission-editor-tier0.md`.
-- `fonts-upstream` — lives only as the head branch of upstream PR
-  alariq/mc2#32 (D3F loader + visual-bounds API + `+1` drop +
-  PR-review fixes, cherry-picked clean onto `upstream/master`).
-  Delete after alariq merges or closes the PR.
-
 Retired (ff-merged into master):
 
 - `fonts` — 2026-04-26. All commits now on master via fast-forward.
 - `fmv-review-fixes` — 2026-04-26. All commits now on master.
+- `fonts-upstream` — 2026-04-27. Existed only to host upstream PR
+  alariq/mc2#32; PR closed, branch can be deleted.
 
 Retired (squash-merged into master):
 
@@ -82,6 +80,26 @@ Retired (squash-merged into master):
 - `fmv-mp4-support-backup` — user's personal safety branch, untouched.
 
 ## External collaboration
+
+**alariq** — channel **closed 2026-04-27**. He stated a 0% LLM-code
+policy ("AIs ... are not welcome here") and considers his fork
+"finished for now ... all functionality (except networking) is
+implemented." All six of our open PRs (#23, #24, #26, #28, #29, #32)
+were closed by us as a result; the work continues on our master.
+We can still cherry-pick **from** his master if he commits anything
+useful — relationship is now opportunistic-inbound only, no comms.
+Durable note: `memory/project_alariq_upstream_closed.md`.
+
+**Methuselas** — collaboration pending. Per email 2026-04-27 he has:
+working save/load with round-trip integrity, water-bug fix, fog fix,
+OG-map load/save, Mission/Team Settings, Campaign Editor — i.e. Tier 0
+mission-editor work plus extras already done on his fork. He's offered
+to merge our work (FMV, fonts, input-fixes, compass, briefing-map, the
+queue alariq just closed) into his fork. Blocker on his side: he has
+no optical drive on his dev box and can't extract MC2 retail data.
+Awaiting him to push his branch publicly before we evaluate
+integration cost. Open question on our side: how to handle the data-
+sharing ask (MS's 2006 release covers code, not data).
 
 **ThranduilsRing** (maintainer of
 [`mc2-opengl-remastered`](https://github.com/ThranduilsRing/mc2-opengl-remastered))
@@ -137,25 +155,25 @@ MoltenVK on Mac. RHI as intermediate layer first, decouples renderer
 from backend. Could be an inbound contribution to his remaster too if
 he wants Mac reach.
 
-## Upstream PRs to alariq
+## Upstream PRs (closed)
 
-Open on `alariq/mc2`:
+All six PRs we had open on `alariq/mc2` were closed 2026-04-27 in
+response to alariq's stated AI policy. No outbound PR queue is being
+maintained; if a peer fork opens its own contribution channel we'll
+evaluate it then.
 
-| # | Topic | Notes |
-|---|---|---|
-| [#23](https://github.com/alariq/mc2/pull/23) | UI scaling | Rebased 2026-04-24. Stalled through 2025. |
-| [#24](https://github.com/alariq/mc2/pull/24) | Windows build improvements | Rebased on top of #23. Blocked on #23 first. |
-| [#26](https://github.com/alariq/mc2/pull/26) | FMV pipeline | Closes #22. |
-| [#28](https://github.com/alariq/mc2/pull/28) | Campaign-dialog dup fix | Closes #27, easy yes. |
-| [#29](https://github.com/alariq/mc2/pull/29) | Compass alpha-test fix | Opened 2026-04-25, one-line fix. |
-| [#32](https://github.com/alariq/mc2/pull/32) | D3F font loader + visual-bounds API | Opened 2026-04-26 (replaces accidentally-bloated #31, which was closed). Head branch `fonts-upstream`. 7 files, +684/-23. Copilot review addressed. |
+Closed PRs (work landed on our master):
 
-Issues: [#22](https://github.com/alariq/mc2/issues/22) (FMVs missing,
-user-opened, closed by #26) and
-[#27](https://github.com/alariq/mc2/issues/27) (dup bug, closed by #28).
+- #23 UI scaling
+- #24 Windows build improvements
+- #26 FMV pipeline (FFmpeg/MP4)
+- #28 Campaign-dialog duplicate fix
+- #29 Compass alpha-test fix
+- #32 D3F font loader + visual-bounds API
 
-Per-PR status and outreach history in
-`devlogs/followups/alariq-pr-waits.md`.
+`devlogs/followups/alariq-pr-waits.md` is now obsolete; it can be
+moved to `devlogs/closed/` as a historical artifact next time we
+touch followups.
 
 ## External reviewer findings (2026-04-24)
 
@@ -197,5 +215,5 @@ Per-PR status and outreach history in
 
 Watching (no action required unless they engage):
 
-- alariq's response on the open PRs (#23/#24/#26/#28/#29/#32).
+- Methuselas pushing his editor branch publicly.
 - Thranduil's response on discussion #2.
