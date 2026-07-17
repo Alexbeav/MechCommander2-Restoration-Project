@@ -774,6 +774,10 @@ class gosTexture {
                         DWORD g = (bgra&0xff00)>>8;
                         DWORD r = (bgra&0xff0000)>>16;
                         DWORD a = (bgra&0xff000000)>>24;
+                        // Locked textures bypass convertIfNecessary(). Preserve the
+                        // gos_Texture_Solid contract just as the file/memory loaders do.
+                        if(format_ == gos_Texture_Solid)
+                            a = 0xff;
                         DWORD argb = (a<<24) | (b<<16) | (g<<8) | r;
                         ((DWORD*)plocked_area_)[tex_.w*y + x] = argb;
                     }

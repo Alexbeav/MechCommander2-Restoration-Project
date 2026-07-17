@@ -1,7 +1,8 @@
 # Mission briefing map — mostly black
 
-**Started:** 2026-04-25. Status: not investigated yet; three hypotheses
-ranked.
+**Started:** 2026-04-25. Status: root cause identified, fix implemented, and
+the affected briefing screen runtime-verified; broader regression smoke checks
+remain.
 
 Promoted from `devlogs/followups/briefing-map-black-textures.md` (now
 deleted — superseded by this devlog).
@@ -17,7 +18,7 @@ The red selection marker and its "1" label still render correctly on
 top, so the overlay sprite/text path is healthy. The problem is
 localized to the map texture itself.
 
-## Leading hypotheses, ranked
+## Original hypotheses, ranked (superseded)
 
 1. **Color-key leak with bilinear filtering.** MC2 uses a colorkey
    for transparency (commonly magenta `0xFF00FF`; some assets use
@@ -34,32 +35,69 @@ localized to the map texture itself.
    alpha, zero tolerance) upload path when the loader expected
    uncompressed.
 
-## Investigation plan
+## Investigation result (2026-07-16)
 
-1. **Identify the asset.** Log the filename being loaded for the
-   briefing-map texture. Find it on disk, open in an external
-   viewer — confirm the raw file matches retail.
-2. **Dump what reached the GPU.** Before the draw call, read back
-   the texture surface (`glGetTexImage`) and save to PNG.
-   - Black-patchy dump → **upload-side** bug (loader, format,
-     palette). Instrument that path next.
-   - Correct dump → **draw-side** bug (sampler, blend, alpha test).
-     Try disabling alpha test and colorkey on that quad; if colors
-     return, blend state is the culprit.
-3. Bisection result determines the next direction.
+The public source-data reference asset is internally healthy. Packet 3 from
+`missions/mc2_02.pak` in
+[`alariq/mc2srcdata`](https://github.com/alariq/mc2srcdata) is an uncompressed
+128x128, 32-bit TGA whose RGB channels contain the expected blue water, grey
+buildings, and natural terrain colors. Its SHA-256 is
+`ac48ff458932eed627d4aa79f4744896510da326bc27b8fb46422809e530d8e0`.
+Its alpha plane is a legacy binary mask: water, buildings, and other large
+regions have alpha zero. Compositing that alpha over black reproduces the
+reported black-region pattern.
 
-## Cheap first check
+`MissionBriefingScreen::getMissionTGA()` correctly passes the thumbnail to
+`textureFromMemory()` as `gos_Texture_Solid`. That path creates an empty
+texture, locks it, copies the BGRA pixels, and unlocks it. Unlike file-backed
+and encoded-memory textures, the lock/unlock path bypasses
+`convertIfNecessary()` / `makeKindaSolid()`, so the OpenGL texture retained
+the asset's zero alpha. `aObject::render()` then uses
+`gos_Alpha_AlphaInvAlpha`, causing those regions to reveal the black
+destination behind the quad.
 
-Before full bisection: disable bilinear filtering on the map texture
-only. If the blacks come back as correct colors, it's hypothesis 1.
-Fix is either point-filter-only for keyed textures, or switching
-colorkey to a real alpha channel in the asset.
+The fix belongs in `gosTexture::Unlock()`: while converting the locked BGRA
+buffer to the renderer's RGBA layout, force alpha to 255 only when
+`format_ == gos_Texture_Solid`. Keyed and alpha textures retain their source
+alpha. This restores the existing solid-texture contract consistently across
+all creation paths without special-casing the briefing screen or altering
+source data.
 
-(Same "alpha test with hard threshold discards soft edges" pattern
-that broke the compass — see
-`devlogs/closed/compass_investigation_2026-04-25.md` and
-`memory/lesson_alpha_test_soft_alpha.md`. Possible the briefing map
-is a variant of that class of bug.)
+## Validation
+
+- The affected `gameos` library target compiles and links successfully.
+- The full native Linux executable links successfully. Local build-only
+  compatibility settings were used for pre-existing portability warnings and
+  direct Windows-header includes; no unrelated source changes are part of this
+  branch.
+- The source-data TGA contains 8,668 pixels with alpha 0 and 7,716 with
+  alpha 255. Modeling the patched BGRA-to-RGBA conversion makes all 16,384
+  pixels opaque with no RGB changes.
+- Keyed and alpha formats do not take the new branch and retain source alpha.
+
+### Runtime result (2026-07-16)
+
+A native Linux validation build was run against the packaged game data. The
+`mc2_02` mission briefing rendered the full mission-map thumbnail through the
+real OpenGL/UI path. Water remained blue, buildings and terrain retained their
+source colors, and the red objective marker rendered over the map normally.
+The objective-building model below the map was also textured. No black map
+regions or black texture quads were visible.
+
+The validated executable's SHA-256 was
+`6ac21f0607f2b0cd6491ab74d64409de9afb58d1d973425df32df5135b7d9212`.
+
+## Remaining regression checks
+
+The primary affected screen is verified. Two broader smoke checks are still
+recommended for other callers of the same texture path:
+
+1. Enter a mission and check ordinary terrain and cement/colormap regions for
+   obvious alpha or color regressions.
+2. Open the multiplayer stats screen and check its logo textures.
+
+The additional checks cover other callers that cache raw memory as
+`gos_Texture_Solid` through the same empty-texture lock/unlock path.
 
 ## Scope boundary
 
